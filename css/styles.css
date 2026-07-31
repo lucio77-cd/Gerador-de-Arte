@@ -1,4 +1,43 @@
 /* ==========================================================
+   FONTES LOCAIS (self-hosted — evita CORS ao exportar a imagem)
+========================================================== */
+@font-face{
+  font-family: 'Anton';
+  src: url('../assets/fonts/anton-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'Montserrat';
+  src: url('../assets/fonts/montserrat-latin-800-normal.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================
    DESIGN TOKENS
 ========================================================== */
 :root{
@@ -467,4 +506,3 @@ body.model-geladeira .only-geladeira{ display: flex; }
 [data-accent-light="true"] .pad-info{ color: var(--preto); }
 [data-accent-light="false"] .pad-categoria,
 [data-accent-light="false"] .pad-info{ color: var(--branco); }
-
