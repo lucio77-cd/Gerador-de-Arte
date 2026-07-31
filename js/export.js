@@ -16,6 +16,12 @@ document.getElementById('btnBaixar').addEventListener('click', async () => {
   btn.textContent = 'Gerando imagem...';
 
   try{
+    // Garante que as fontes locais (Anton/Montserrat) já carregaram
+    // antes de capturar — evita texto com fonte errada ou falha de render.
+    if(document.fonts && document.fonts.ready){
+      await document.fonts.ready;
+    }
+
     const dataUrl = await htmlToImage.toPng(cardEl, {
       pixelRatio: 3, // ~300dpi equivalente para telas base 96dpi
       backgroundColor: '#ffffff',
@@ -34,7 +40,7 @@ document.getElementById('btnBaixar').addEventListener('click', async () => {
     link.click();
   }catch(err){
     console.error(err);
-    alert('Não foi possível gerar a imagem. Veja o console para detalhes.');
+    alert('Não foi possível gerar a imagem.\n\nDetalhe técnico: ' + (err && err.message ? err.message : String(err)));
   }finally{
     scaleWrap.style.transform = originalTransform;
     btn.disabled = false;
