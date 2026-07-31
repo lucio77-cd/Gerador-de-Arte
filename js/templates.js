@@ -20,9 +20,23 @@ const LOGO_FALLBACK_HTML = `
   </div>
 `;
 
+// BUG CORRIGIDO: antes o fallback do logo era montado inline no atributo
+// onerror="..." do <img>, injetando LOGO_FALLBACK_HTML (que contém aspas
+// duplas de style="...") dentro de um atributo também delimitado por aspas
+// duplas. O navegador fechava o atributo no primeiro " que encontrava e
+// o resto do HTML vazava pro DOM como texto solto, corrompendo o preview
+// inteiro (inclusive a imagem do produto, que nunca chegava a renderizar).
+// Agora o fallback é tratado por uma função global nomeada, sem precisar
+// escapar nada dentro do atributo.
+function handleLogoError(imgEl, className){
+  const div = document.createElement('div');
+  div.className = className;
+  div.innerHTML = LOGO_FALLBACK_HTML;
+  imgEl.replaceWith(div);
+}
+
 function logoTag(className){
-  return `<img src="${LOGO_SRC}" class="${className}" alt="Logo"
-    onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'${className}', innerHTML: \`${LOGO_FALLBACK_HTML.replace(/`/g, '\\`')}\`}))">`;
+  return `<img src="${LOGO_SRC}" class="${className}" alt="Logo" onerror="handleLogoError(this, '${className}')">`;
 }
 
 // Formata preço em duas partes: inteiro e centavos (sempre 2 dígitos)
