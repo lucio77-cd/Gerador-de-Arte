@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Artes — Padaria da Cris</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="app-header">
+    <h1>Gerador de Artes</h1>
+    <p>Padaria da Cris — etiquetas de preço</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button type="button" class="tab active" data-model="geladeira">Geladeira</button>
+    <button type="button" class="tab" data-model="padrao">Padrão</button>
+  </div>
+
+  <div class="workspace">
+
+    <form id="form" class="panel-form" onsubmit="return false;">
+
+      <div class="field">
+        <label for="nomeProduto">Nome do produto</label>
+        <input type="text" id="nomeProduto" placeholder="Ex: Pão Francês" maxlength="40">
+      </div>
+
+      <div class="field only-padrao">
+        <label for="categoria">Categoria (tag pequena)</label>
+        <input type="text" id="categoria" placeholder="Ex: PADARIA" maxlength="20">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="precoInteiro">Preço (inteiro)</label>
+          <input type="number" id="precoInteiro" placeholder="8" min="0">
+        </div>
+        <div class="field">
+          <label for="precoCentavos">Centavos</label>
+          <input type="number" id="precoCentavos" placeholder="99" min="0" max="99">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Cor de destaque</label>
+        <div class="color-swatches" id="corDestaque"></div>
+      </div>
+
+      <div class="field only-geladeira">
+        <label for="orientacaoGeladeira">Formato</label>
+        <select id="orientacaoGeladeira">
+          <option value="portrait" selected>10 x 15 cm (retrato)</option>
+          <option value="landscape">15 x 10 cm (paisagem)</option>
+        </select>
+      </div>
+
+      <div class="field only-padrao">
+        <label class="checkbox-label">
+          <input type="checkbox" id="mostrarOferta" checked>
+          Mostrar selo "OFERTA"
+        </label>
+      </div>
+
+      <div class="field only-padrao">
+        <label for="infoExtra">Informação extra (peso/litragem)</label>
+        <input type="text" id="infoExtra" placeholder="Ex: 500g" maxlength="30">
+      </div>
+
+      <div class="field only-padrao">
+        <label>Foto do produto (opcional)</label>
+        <div class="upload-avatar" id="uploadAvatar">
+          <div class="upload-avatar-preview" id="uploadAvatarPreview">
+            <span class="upload-icon">📷</span>
+          </div>
+          <button type="button" class="upload-avatar-remove" id="btnRemoverImagem" title="Remover foto" aria-label="Remover foto">×</button>
+        </div>
+        <span class="upload-hint">Toque na miniatura pra escolher/trocar</span>
+        <input type="file" id="imagemProduto" accept="image/*" class="visually-hidden">
+      </div>
+
+      <button type="button" id="btnBaixar" class="btn-primary">Baixar arte (PNG)</button>
+      <button type="button" id="btnAjustarTela" class="btn-secondary">Ajustar à tela</button>
+
+    </form>
+
+    <div class="panel-preview">
+      <div class="preview-scroll">
+        <div class="preview-scale" id="previewScale">
+          <div id="preview"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+</body>
+</html>
+
