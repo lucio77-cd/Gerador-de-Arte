@@ -114,16 +114,48 @@ function updateAvatarPreview(){
 // toca na miniatura -> abre o seletor de arquivo do celular
 uploadAvatarPreviewEl.addEventListener('click', () => imagemInputEl.click());
 
-imagemInputEl.addEventListener('change', (e) => {
+// Redimensiona a foto no upload (fotos de câmera vêm enormes — 3000x4000px,
+// vários MB — isso deixa o preview lento e pode travar a exportação em
+// celulares com menos memória). Reduz pro maior lado ter no máx. 1000px.
+function resizeImageToDataUrl(file, maxDim = 1000, quality = 0.85){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível ler o arquivo selecionado.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Não foi possível abrir essa imagem.'));
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxDim){
+          height = Math.round(height * (maxDim / width));
+          width = maxDim;
+        } else if(height >= width && height > maxDim){
+          width = Math.round(width * (maxDim / height));
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+imagemInputEl.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.imagemDataUrl = reader.result;
+  try{
+    state.imagemDataUrl = await resizeImageToDataUrl(file);
     updateAvatarPreview();
     renderPreview();
-  };
-  reader.readAsDataURL(file);
+  }catch(err){
+    console.error(err);
+    alert('Não foi possível usar essa foto. Tente outra imagem.');
+  }
 });
 
 document.getElementById('btnRemoverImagem').addEventListener('click', (e) => {
@@ -168,4 +200,3 @@ window.addEventListener('resize', fitPreviewToScreen);
 // ==========================================================
 updateAvatarPreview();
 renderPreview();
-
