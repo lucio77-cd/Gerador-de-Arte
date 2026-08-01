@@ -20,14 +20,6 @@ const LOGO_FALLBACK_HTML = `
   </div>
 `;
 
-// BUG CORRIGIDO: antes o fallback do logo era montado inline no atributo
-// onerror="..." do <img>, injetando LOGO_FALLBACK_HTML (que contém aspas
-// duplas de style="...") dentro de um atributo também delimitado por aspas
-// duplas. O navegador fechava o atributo no primeiro " que encontrava e
-// o resto do HTML vazava pro DOM como texto solto, corrompendo o preview
-// inteiro (inclusive a imagem do produto, que nunca chegava a renderizar).
-// Agora o fallback é tratado por uma função global nomeada, sem precisar
-// escapar nada dentro do atributo.
 function handleLogoError(imgEl, className){
   const div = document.createElement('div');
   div.className = className;
@@ -35,8 +27,36 @@ function handleLogoError(imgEl, className){
   imgEl.replaceWith(div);
 }
 
+// ----------------------------------------------------------
+// LOGO PRÉ-CARREGADO COMO DATA URL
+// ----------------------------------------------------------
+// BUG CORRIGIDO (box preto atrás do logo no PNG exportado): o <img>
+// apontava sempre pra LOGO_SRC (um caminho de rede). No momento em que
+// html-to-image captura o card, ele precisa buscar essa imagem nesse
+// exato instante e embuti-la no PNG final — se a captura acontece antes
+// desse fetch interno terminar (ou se o servidor/CDN responde com
+// headers que impedem a leitura dos pixels), a lib não consegue ler o
+// conteúdo da imagem e desenha um retângulo sólido no lugar dela.
+// Agora a imagem é baixada e convertida pra data URL (base64) uma única
+// vez, assim que o script carrega. A partir daí o <img src="..."> já
+// nasce com o conteúdo embutido — não existe mais nenhum fetch de rede
+// no momento da exportação, então não tem como esse tipo de corrida
+// (race condition) acontecer.
+let logoDataUrl = null;
+const logoDataUrlReady = fetch(LOGO_SRC)
+  .then(res => res.blob())
+  .then(blob => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Falha ao ler o logo'));
+    reader.readAsDataURL(blob);
+  }))
+  .then(dataUrl => { logoDataUrl = dataUrl; return dataUrl; })
+  .catch(() => null); // se falhar, segue usando LOGO_SRC normalmente (com o fallback de sempre)
+
 function logoTag(className){
-  return `<img src="${LOGO_SRC}" class="${className}" alt="Logo" onerror="handleLogoError(this, '${className}')">`;
+  const src = logoDataUrl || LOGO_SRC;
+  return `<img src="${src}" class="${className}" alt="Logo" onerror="handleLogoError(this, '${className}')">`;
 }
 
 // Formata preço em duas partes: inteiro e centavos (sempre 2 dígitos)
@@ -46,6 +66,55 @@ function formatPreco(inteiro, centavos){
   c = Math.max(0, Math.min(99, c));
   return { inteiro: i, centavos: String(c).padStart(2, '0') };
 }
+
+// ==========================================================
+// ELEMENTOS DECORATIVOS (SVG)
+// ==========================================================
+
+// Linha curva tipo "sorriso" abaixo do nome do produto (nas duas artes de
+// referência a linha não é reta, ela tem uma leve curvatura pra cima nas
+// pontas e uma pequena "cauda" numa das pontas no modelo Padrão)
+function linhaCurvaSvg(hex, variante){
+  if(variante === 'padrao'){
+    return `
+      <svg class="linha-curva" viewBox="0 0 320 26" preserveAspectRatio="none" fill="none">
+        <path d="M2,6 Q160,22 300,10 Q312,8 316,16" stroke="${hex}" stroke-width="4" stroke-linecap="round"/>
+      </svg>`;
+  }
+  return `
+    <svg class="linha-curva" viewBox="0 0 300 20" preserveAspectRatio="none" fill="none">
+      <path d="M2,4 Q150,20 298,4" stroke="${hex}" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+}
+
+// Respingo/pincelada de tinta atrás do preço (modelo Geladeira) — forma
+// irregular, assimétrica, em vez do blob simétrico que tinha antes
+function pincelaSvg(hex){
+  return `
+    <svg class="gel-preco-pincela" viewBox="0 0 420 230" preserveAspectRatio="none">
+      <path d="M18,132 C6,92 34,48 92,34 C150,18 246,10 312,26
+               C372,40 404,74 398,116 C394,150 408,178 386,198
+               C356,224 292,214 244,222 C176,234 88,228 44,204
+               C10,186 -2,164 18,132 Z" fill="${hex}"/>
+    </svg>`;
+}
+
+// Sparkles/traços ao redor do logo (modelo Geladeira)
+function sparklesHtml(hex){
+  return `
+    <svg class="gel-sparkle gel-sparkle-l1" viewBox="0 0 20 20"><path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="${hex}"/></svg>
+    <svg class="gel-sparkle gel-sparkle-l2" viewBox="0 0 20 6"><rect x="0" y="1" width="20" height="4" rx="2" fill="${hex}"/></svg>
+    <svg class="gel-sparkle gel-sparkle-r1" viewBox="0 0 20 20"><path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="${hex}"/></svg>
+    <svg class="gel-sparkle gel-sparkle-r2" viewBox="0 0 20 6"><rect x="0" y="1" width="20" height="4" rx="2" fill="${hex}"/></svg>
+  `;
+}
+
+// Ícone de gota (linear/contorno) — substitui o emoji 💧
+const GOTA_SVG = `
+  <svg class="gel-gota-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C12 2 5 11 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 11 12 2 12 2Z"
+      stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/>
+  </svg>`;
 
 // ==========================================================
 // TEMPLATE: GELADEIRA
@@ -58,11 +127,14 @@ function renderGeladeiraTemplate(data){
 
   return `
     <div class="card-geladeira ${orientClass}" style="--accent:${cor.hex}">
-      ${logoTag('gel-logo')}
+      <div class="gel-logo-wrap">
+        ${sparklesHtml(cor.hex)}
+        ${logoTag('gel-logo')}
+      </div>
       <div class="gel-nome">${escapeHtml(nome)}</div>
-      <div class="gel-linha"></div>
+      ${linhaCurvaSvg(cor.hex, 'geladeira')}
       <div class="gel-preco-wrap">
-        <div class="gel-preco-fundo"></div>
+        ${pincelaSvg(cor.hex)}
         <div class="gel-preco">
           <span class="cifrao">R$</span>
           <span class="inteiro">${preco.inteiro}</span>
@@ -72,7 +144,7 @@ function renderGeladeiraTemplate(data){
           </span>
         </div>
       </div>
-      <div class="gel-resistente">💧 RESISTENTE<br>À ÁGUA</div>
+      <div class="gel-resistente">${GOTA_SVG}<span>RESISTENTE<br>À ÁGUA</span></div>
     </div>
   `;
 }
@@ -107,7 +179,7 @@ function renderPadraoTemplate(data){
       ${logoTag('pad-logo')}
       ${categoriaHtml}
       <div class="pad-nome">${escapeHtml(nome)}</div>
-      <div class="pad-linha"></div>
+      ${linhaCurvaSvg(cor.hex, 'padrao')}
       ${ofertaHtml}
       <div class="pad-preco">
         <span class="cifrao">R$</span>
@@ -128,3 +200,9 @@ function escapeHtml(str){
   div.textContent = str;
   return div.innerHTML;
 }
+
+// Assim que o logo termina de carregar como data URL, redesenha o
+// preview (se já tiver sido renderizado com o LOGO_SRC de rede)
+logoDataUrlReady.then(() => {
+  if(typeof renderPreview === 'function') renderPreview();
+});
