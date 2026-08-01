@@ -1,15 +1,14 @@
 // ==========================================================
-// MOTOR DE RENDERIZAÇÃO — CANVAS NATIVO
+// MOTOR DE RENDERIZAÇÃO — CANVAS NATIVO, BASEADO NO spec-camadas.md
 // ==========================================================
-// Por que canvas em vez de HTML/CSS + html-to-image:
-// a tela que o usuário vê e o PNG exportado eram, antes, dois processos
-// diferentes rodando em momentos diferentes (DOM ao vivo vs. "foto" tirada
-// depois). Cada bug que a gente caçou (logo com fundo preto, "00" virando
-// "DO", grid bagunçando no export) veio dessa dessincronia. Aqui não existe
-// mais isso: tudo é desenhado direto no <canvas>, e exportar é só ler os
-// pixels que já estão lá — o mesmo objeto, sem tradução no meio.
+// Cada elemento visual é tratado como uma camada independente: tem uma
+// condição "ativo" (liga/desliga sem `if` espalhado pelo desenho), uma
+// âncora e um alvo de tamanho — os três tirados por medição de pixel
+// das artes de referência, documentados em spec-camadas.md. Todas as
+// posições são em % do card (0 a 1), não pixel fixo, então escalam
+// junto se o card mudar de tamanho.
 
-const CANVAS_SCALE = 2; // resolução interna (nitidez tipo "retina" já embutida)
+const CANVAS_SCALE = 2; // resolução interna (nitidez tipo "retina")
 
 const COLOR_MAP = {
   vermelho: { hex: '#E31E24', light: false },
@@ -20,14 +19,17 @@ const COLOR_MAP = {
   roxo:     { hex: '#7B1FA2', light: false },
 };
 
+// Proporções medidas nas referências (spec-camadas.md):
+//   Padrão:    995 x 957  -> 1,04:1 (quase quadrado)
+//   Geladeira: 856 x 904  -> 0,95:1 (quase quadrado, um pouco mais alto)
 const DESIGN = {
-  geladeiraPortrait:  { w: 378, h: 567 },
-  geladeiraLandscape: { w: 567, h: 378 },
-  padrao:             { w: 794, h: 560 },
+  padrao:             { w: 995, h: 957 },
+  geladeiraPortrait:  { w: 856, h: 904 },
+  geladeiraLandscape: { w: 904, h: 856 },
 };
 
 // ----------------------------------------------------------
-// CARREGAMENTO DE ASSETS (uma vez só, no início)
+// CARREGAMENTO DE ASSETS
 // ----------------------------------------------------------
 let logoImage = null;
 const logoReady = (async () => {
@@ -64,7 +66,7 @@ async function assetsReady(){
 }
 
 // ----------------------------------------------------------
-// UTILITÁRIOS DE DESENHO
+// UTILITÁRIOS DE BASE
 // ----------------------------------------------------------
 function setupCanvas(canvas, logicalW, logicalH){
   canvas.width = logicalW * CANVAS_SCALE;
@@ -77,6 +79,7 @@ function setupCanvas(canvas, logicalW, logicalH){
 }
 
 function roundRectPath(ctx, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -108,10 +111,8 @@ function wrapText(ctx, text, maxWidth){
   return lines;
 }
 
-// Encontra por busca binária o maior tamanho de fonte que ainda faz o
-// texto caber em até `maxLines` linhas dentro de maxWidth x maxHeight —
-// mesma ideia de libs como textFit/fitty, só que medindo direto no canvas
-// (ctx.measureText), sem depender de nenhum layout de DOM.
+// Camada `texto-autofit`: busca binária pelo maior tamanho de fonte que
+// ainda cabe em até `maxLines` linhas dentro de maxWidth x maxHeight.
 function fitText(ctx, text, { fontFamily, weight = '400', min = 16, max = 96, maxWidth, maxHeight, maxLines = 2, lineHeightRatio = 1.05 }){
   let lo = min, hi = max, melhor = { size: min, lines: wrapText(ctx, text, maxWidth) };
   while(lo <= hi){
@@ -126,39 +127,31 @@ function fitText(ctx, text, { fontFamily, weight = '400', min = 16, max = 96, ma
       hi = meio - 1;
     }
   }
-  ctx.font = `${melhor.weight || weight} ${melhor.size}px ${fontFamily}`;
+  ctx.font = `${weight} ${melhor.size}px ${fontFamily}`;
   return melhor;
 }
 
-function drawMultilineText(ctx, lines, x, y, size, lineHeightRatio, align){
-  ctx.textAlign = align;
-  ctx.textBaseline = 'alphabetic';
-  const lineHeight = size * lineHeightRatio;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, x, y + i * lineHeight + size * 0.82);
-  });
+// Mede a altura real do glifo (ascent+descent) numa fonte, pra calibrar
+// com precisão a camada `texto-proporcional` sem depender de uma razão
+// cap-height/font-size chutada — pergunta pro próprio canvas.
+function medirAlturaGlifo(ctx, texto, fontFamily, weight, sizeRef = 100){
+  ctx.font = `${weight} ${sizeRef}px ${fontFamily}`;
+  const m = ctx.measureText(texto);
+  const altura = (m.actualBoundingBoxAscent || 0) + (m.actualBoundingBoxDescent || 0);
+  return altura > 0 ? altura : sizeRef * 0.72; // fallback se o navegador não suportar as métricas
 }
 
 function drawImageCover(ctx, img, x, y, w, h, radius = 0){
-  const proporcaoImagem = img.width / img.height;
-  const proporcaoBox = w / h;
+  const propImagem = img.width / img.height;
+  const propBox = w / h;
   let sx, sy, sw, sh;
-  if(proporcaoImagem > proporcaoBox){
-    sh = img.height;
-    sw = sh * proporcaoBox;
-    sx = (img.width - sw) / 2;
-    sy = 0;
+  if(propImagem > propBox){
+    sh = img.height; sw = sh * propBox; sx = (img.width - sw) / 2; sy = 0;
   } else {
-    sw = img.width;
-    sh = sw / proporcaoBox;
-    sx = 0;
-    sy = (img.height - sh) / 2;
+    sw = img.width; sh = sw / propBox; sx = 0; sy = (img.height - sh) / 2;
   }
   ctx.save();
-  if(radius){
-    roundRectPath(ctx, x, y, w, h, radius);
-    ctx.clip();
-  }
+  if(radius){ roundRectPath(ctx, x, y, w, h, radius); ctx.clip(); }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   ctx.restore();
 }
@@ -167,25 +160,103 @@ function formatPreco(inteiro, centavos){
   const i = (inteiro === '' || inteiro == null || isNaN(inteiro)) ? 0 : parseInt(inteiro, 10);
   let c = (centavos === '' || centavos == null || isNaN(centavos)) ? 0 : parseInt(centavos, 10);
   c = Math.max(0, Math.min(99, c));
-  return { inteiro: i, centavos: String(c).padStart(2, '0') };
+  return { inteiro: String(i), centavos: String(c).padStart(2, '0') };
+}
+
+// ----------------------------------------------------------
+// CAMADA: badge (categoria / oferta / info) — dimensiona pelo próprio
+// texto (medido) + padding, nunca uma caixa fixa que corta o conteúdo
+// ----------------------------------------------------------
+function drawBadge(ctx, texto, { x, y, alturaAlvo, cor, corTexto, align = 'left', paddingX, rotationDeg = 0 }){
+  const fontSize = Math.round(alturaAlvo * 0.5);
+  ctx.font = `800 ${fontSize}px Montserrat`;
+  const textW = ctx.measureText(texto).width;
+  const pad = paddingX ?? alturaAlvo * 0.4;
+  const badgeW = textW + pad * 2;
+  const badgeH = alturaAlvo;
+
+  ctx.save();
+  if(rotationDeg){
+    const cx = align === 'center' ? x : x + badgeW / 2;
+    ctx.translate(cx, y + badgeH / 2);
+    ctx.rotate((rotationDeg * Math.PI) / 180);
+    ctx.translate(-badgeW / 2, -badgeH / 2);
+  } else {
+    ctx.translate(align === 'center' ? x - badgeW / 2 : x, y);
+  }
+  ctx.fillStyle = cor;
+  roundRectPath(ctx, 0, 0, badgeW, badgeH, badgeH / 2 * 0.5);
+  ctx.fill();
+  ctx.fillStyle = corTexto;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(texto, badgeW / 2, badgeH / 2 + fontSize * 0.04);
+  ctx.restore();
+
+  return { w: badgeW, h: badgeH };
+}
+
+// ----------------------------------------------------------
+// CAMADA: texto-proporcional (preço) — nasce no tamanho "cheio" medido
+// na referência e só encolhe se não couber na largura disponível.
+// ----------------------------------------------------------
+function drawPreco(ctx, { inteiro, centavos }, { anchorX, baselineY, alturaAlvo, maxWidth, align = 'left', color = '#000000' }){
+  const RATIO_CIFRAO = 0.3125;   // proporções herdadas do design original,
+  const RATIO_CENTAVOS = 0.479;  // validadas visualmente antes desta rodada
+
+  const alturaGlifo = medirAlturaGlifo(ctx, inteiro, 'Anton', '400');
+  let fontInteiro = (alturaAlvo * 100) / alturaGlifo;
+
+  const medirLargura = (fi) => {
+    ctx.font = `400 ${fi * RATIO_CIFRAO}px Anton`;
+    const wCifrao = ctx.measureText('R$').width;
+    ctx.font = `400 ${fi}px Anton`;
+    const wInteiro = ctx.measureText(inteiro).width;
+    ctx.font = `400 ${fi * RATIO_CENTAVOS}px Anton`;
+    const wCentavos = ctx.measureText(centavos).width;
+    return wCifrao + 6 + wInteiro + 8 + wCentavos;
+  };
+
+  let larguraTotal = medirLargura(fontInteiro);
+  if(maxWidth && larguraTotal > maxWidth){
+    fontInteiro *= maxWidth / larguraTotal; // só encolhe se realmente não couber
+    larguraTotal = medirLargura(fontInteiro);
+  }
+
+  let px = align === 'center' ? anchorX - larguraTotal / 2 : anchorX;
+
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.font = `400 ${fontInteiro * RATIO_CIFRAO}px Anton`;
+  ctx.fillText('R$', px, baselineY - fontInteiro * 0.06);
+  px += ctx.measureText('R$').width + 6;
+
+  ctx.font = `400 ${fontInteiro}px Anton`;
+  ctx.fillText(inteiro, px, baselineY);
+  px += ctx.measureText(inteiro).width + 8;
+
+  ctx.font = `400 ${fontInteiro * RATIO_CIFRAO}px Anton`;
+  ctx.fillText(',', px, baselineY - fontInteiro * 0.32);
+
+  ctx.font = `400 ${fontInteiro * RATIO_CENTAVOS}px Anton`;
+  ctx.fillText(centavos, px + 6, baselineY - fontInteiro * 0.04);
+
+  return { w: larguraTotal, fontInteiro };
 }
 
 // ----------------------------------------------------------
 // ELEMENTOS DECORATIVOS
 // ----------------------------------------------------------
-function drawLinhaCurva(ctx, x, y, w, hex, variante){
+function drawLinhaCurva(ctx, x, y, w, hex){
   ctx.save();
   ctx.strokeStyle = hex;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = w * 0.012;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  if(variante === 'padrao'){
-    ctx.moveTo(x, y + 6);
-    ctx.quadraticCurveTo(x + w * 0.5, y + 20, x + w, y + 10);
-  } else {
-    ctx.moveTo(x, y + 4);
-    ctx.quadraticCurveTo(x + w / 2, y + 18, x + w, y + 4);
-  }
+  ctx.moveTo(x, y + w * 0.02);
+  ctx.quadraticCurveTo(x + w / 2, y + w * 0.09, x + w, y + w * 0.02);
   ctx.stroke();
   ctx.restore();
 }
@@ -239,10 +310,10 @@ function drawTraco(ctx, cx, cy, w, h, anguloGraus, hex){
 }
 
 function drawSparkles(ctx, cx, cy, raio, hex){
-  drawDiamante(ctx, cx - raio, cy - 14, 8, hex);
-  drawTraco(ctx, cx - raio - 14, cy + 12, 20, 6, 35, hex);
-  drawDiamante(ctx, cx + raio, cy - 14, 8, hex);
-  drawTraco(ctx, cx + raio + 14, cy + 12, 20, 6, -35, hex);
+  drawDiamante(ctx, cx - raio, cy - raio * 0.35, raio * 0.16, hex);
+  drawTraco(ctx, cx - raio * 1.25, cy + raio * 0.3, raio * 0.4, raio * 0.12, 35, hex);
+  drawDiamante(ctx, cx + raio, cy - raio * 0.35, raio * 0.16, hex);
+  drawTraco(ctx, cx + raio * 1.25, cy + raio * 0.3, raio * 0.4, raio * 0.12, -35, hex);
 }
 
 function drawGota(ctx, x, y, size){
@@ -265,222 +336,104 @@ function drawGota(ctx, x, y, size){
 }
 
 // ==========================================================
-// TEMPLATE: GELADEIRA
-// ==========================================================
-async function renderGeladeira(canvas, state){
-  await assetsReady();
-  const dims = state.orientacao === 'landscape' ? DESIGN.geladeiraLandscape : DESIGN.geladeiraPortrait;
-  const ctx = setupCanvas(canvas, dims.w, dims.h);
-  const cor = COLOR_MAP[state.cor] || COLOR_MAP.amarelo;
-  const preco = formatPreco(state.precoInteiro, state.precoCentavos);
-
-  ctx.clearRect(0, 0, dims.w, dims.h);
-
-  // fundo + borda arredondada
-  ctx.fillStyle = '#ffffff';
-  roundRectPath(ctx, 4, 4, dims.w - 8, dims.h - 8, 28);
-  ctx.fill();
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = cor.hex;
-  roundRectPath(ctx, 4, 4, dims.w - 8, dims.h - 8, 28);
-  ctx.stroke();
-
-  const cx = dims.w / 2;
-  const padX = 32;
-  let cursorY = 26;
-
-  // logo + sparkles
-  const logoW = 100;
-  const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : 82;
-  if(logoImage) ctx.drawImage(logoImage, cx - logoW / 2, cursorY, logoW, logoH);
-  drawSparkles(ctx, cx, cursorY + logoH / 2, logoW / 2 + 22, cor.hex);
-  cursorY += logoH + 14;
-
-  // nome do produto (auto-ajustável)
-  ctx.fillStyle = '#000000';
-  const nome = (state.nome || 'NOME DO PRODUTO').toUpperCase();
-  const nomeFit = fitText(ctx, nome, {
-    fontFamily: 'Anton', min: 20, max: 34,
-    maxWidth: dims.w - padX * 2, maxHeight: 78, maxLines: 2,
-  });
-  drawMultilineText(ctx, nomeFit.lines, cx, cursorY, nomeFit.size, 1.05, 'center');
-  cursorY += nomeFit.lines.length * nomeFit.size * 1.05 + 12;
-
-  // linha curva
-  const linhaW = (dims.w - padX * 2) * 0.7;
-  drawLinhaCurva(ctx, cx - linhaW / 2, cursorY, linhaW, cor.hex, 'geladeira');
-  cursorY += 26;
-
-  // preço (com pincelada atrás)
-  const areaPrecoTop = cursorY;
-  const areaPrecoBottom = dims.h - 60;
-  const areaPrecoH = areaPrecoBottom - areaPrecoTop;
-  drawPincela(ctx, padX - 10, areaPrecoTop, dims.w - (padX - 10) * 2, areaPrecoH * 0.68, cor.hex);
-
-  ctx.fillStyle = '#000000';
-  ctx.font = '400 22px Anton';
-  const cifraoW = ctx.measureText('R$').width;
-  ctx.font = '400 74px Anton';
-  const inteiroTxt = String(preco.inteiro);
-  const inteiroW = ctx.measureText(inteiroTxt).width;
-  ctx.font = '400 36px Anton';
-  const centavosW = ctx.measureText('00').width;
-
-  const precoTotalW = cifraoW + 6 + inteiroW + 8 + centavosW;
-  let px = cx - precoTotalW / 2;
-  const precoBaseY = areaPrecoTop + areaPrecoH / 2 + 26;
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.font = '400 22px Anton';
-  ctx.fillText('R$', px, precoBaseY - 4);
-  px += cifraoW + 6;
-  ctx.font = '400 74px Anton';
-  ctx.fillText(inteiroTxt, px, precoBaseY + 18);
-  px += inteiroW + 8;
-  ctx.font = '400 30px Anton';
-  ctx.fillText(',', px, precoBaseY - 18);
-  ctx.font = '400 36px Anton';
-  ctx.fillText(preco.centavos, px + 6, precoBaseY + 8);
-
-  // selo "resistente à água"
-  const gotaX = dims.w - 92, gotaY = dims.h - 40;
-  drawGota(ctx, gotaX, gotaY - 6, 16);
-  ctx.fillStyle = '#444444';
-  ctx.font = '700 10px Montserrat';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText('RESISTENTE', gotaX + 22, gotaY - 2);
-  ctx.fillText('À ÁGUA', gotaX + 22, gotaY + 10);
-}
-
-// ==========================================================
-// TEMPLATE: PADRÃO
+// MODELO: PADRÃO  (995 x 957 medido — spec-camadas.md)
 // ==========================================================
 async function renderPadrao(canvas, state){
   await assetsReady();
   const dims = DESIGN.padrao;
   const ctx = setupCanvas(canvas, dims.w, dims.h);
+  const W = dims.w, H = dims.h;
   const cor = COLOR_MAP[state.cor] || COLOR_MAP.vermelho;
   const preco = formatPreco(state.precoInteiro, state.precoCentavos);
+  const corTextoBadge = cor.light ? '#000000' : '#ffffff';
 
-  ctx.clearRect(0, 0, dims.w, dims.h);
+  ctx.clearRect(0, 0, W, H);
 
-  // fundo + borda
+  // 1. fundo-borda — sempre ativo
+  const minDim = Math.min(W, H);
+  const raio = minDim * 0.024;
+  const stroke = W * 0.006;
   ctx.fillStyle = '#ffffff';
-  roundRectPath(ctx, 3, 3, dims.w - 6, dims.h - 6, 24);
+  roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
   ctx.fill();
-  ctx.lineWidth = 6;
+  ctx.lineWidth = stroke;
   ctx.strokeStyle = cor.hex;
-  roundRectPath(ctx, 3, 3, dims.w - 6, dims.h - 6, 24);
+  roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
   ctx.stroke();
 
-  const padX = 36, padY = 30;
-  const colEsqX = padX;
-  const colDirX = dims.w / 2 + 10;
-  const colDirW = dims.w - padX - colDirX;
+  // 2. logo — sempre ativo — x 2,9% / y 3,3% · largura-alvo 34%
+  const logoX = 0.029 * W, logoY = 0.033 * H, logoW = 0.34 * W;
+  const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : logoW * 0.9;
+  if(logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
 
-  // logo (coluna esquerda, topo)
-  const logoW = 120;
-  const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : 98;
-  if(logoImage) ctx.drawImage(logoImage, colEsqX, padY, logoW, logoH);
+  // coluna do nome (direita), usada por categoria + nome + linha
+  const colX = 0.388 * W, colW = 0.823 * W - colX;
 
-  // categoria (coluna direita, topo) — badge arredondado
-  let nomeTopY = padY + 4;
+  // 3. badge-categoria — ativo: state.categoria
+  let nomeTopY = 0.093 * H;
   if(state.categoria){
-    ctx.font = '800 14px Montserrat';
-    const texto = state.categoria.toUpperCase();
-    const textW = ctx.measureText(texto).width;
-    const badgeW = textW + 32, badgeH = 30;
-    ctx.fillStyle = cor.hex;
-    roundRectPath(ctx, colDirX, nomeTopY, badgeW, badgeH, badgeH / 2);
-    ctx.fill();
-    ctx.fillStyle = cor.light ? '#000000' : '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(texto, colDirX + 16, nomeTopY + badgeH / 2 + 1);
-    nomeTopY += badgeH + 12;
+    const badge = drawBadge(ctx, state.categoria.toUpperCase(), {
+      x: colX, y: nomeTopY, alturaAlvo: 0.05 * H,
+      cor: cor.hex, corTexto: corTextoBadge, align: 'left',
+    });
+    nomeTopY += badge.h + 0.02 * H;
   } else {
-    nomeTopY += 6;
+    nomeTopY += 0.01 * H;
   }
 
-  // nome do produto (auto-ajustável, coluna direita)
+  // 4. nome-produto — sempre ativo — caixa x 38,8-82,3% / y 18,6-43,5%
   ctx.fillStyle = '#000000';
   const nome = (state.nome || 'NOME DO PRODUTO').toUpperCase();
+  const nomeCaixaTop = 0.186 * H;
+  const nomeCaixaBottom = 0.435 * H;
   const nomeFit = fitText(ctx, nome, {
-    fontFamily: 'Anton', min: 24, max: 56,
-    maxWidth: colDirW, maxHeight: 110, maxLines: 2,
+    fontFamily: 'Anton', min: 20, max: 72,
+    maxWidth: colW, maxHeight: nomeCaixaBottom - Math.max(nomeTopY, nomeCaixaTop) + (nomeCaixaBottom - nomeCaixaTop),
+    maxLines: 2,
   });
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
+  const nomeY = Math.max(nomeTopY, nomeCaixaTop);
   const lineHeight = nomeFit.size * 1.05;
-  nomeFit.lines.forEach((line, i) => {
-    ctx.fillText(line, colDirX, nomeTopY + i * lineHeight + nomeFit.size * 0.85);
+  nomeFit.lines.forEach((linha, i) => {
+    ctx.fillText(linha, colX, nomeY + i * lineHeight + nomeFit.size * 0.82);
   });
-  const nomeBottomY = nomeTopY + nomeFit.lines.length * lineHeight;
+  const nomeBottomY = nomeY + nomeFit.lines.length * lineHeight;
 
-  // linha curva abaixo do nome
-  const linhaW = colDirW * 0.6;
-  drawLinhaCurva(ctx, colDirX, nomeBottomY + 4, linhaW, cor.hex, 'padrao');
+  // 5. linha-curva — sempre ativo — logo abaixo do nome, 60% da coluna
+  drawLinhaCurva(ctx, colX, nomeBottomY + 0.015 * H, colW * 0.6, cor.hex);
 
-  // --- linha de baixo: oferta / preço (esquerda) + imagem / info (direita) ---
-  const linhaBaixoY = Math.max(padY + logoH + 24, nomeBottomY + 40);
-
-  // selo oferta
-  let precoTopY = linhaBaixoY;
+  // 6. selo-oferta — ativo: state.mostrarOferta — x 4,1-26,7% / y 46-57,7%
   if(state.mostrarOferta){
-    ctx.save();
-    ctx.translate(colEsqX + 50, linhaBaixoY + 16);
-    ctx.rotate((-3 * Math.PI) / 180);
-    ctx.font = '800 15px Montserrat';
-    const texto = 'OFERTA';
-    const textW = ctx.measureText(texto).width;
-    const badgeW = textW + 36, badgeH = 34;
-    ctx.fillStyle = cor.hex;
-    roundRectPath(ctx, -badgeW / 2, -badgeH / 2, badgeW, badgeH, 6);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(texto, 0, 1);
-    ctx.restore();
-    precoTopY = linhaBaixoY + 44;
+    const ofertaX = 0.041 * W, ofertaY = 0.46 * H;
+    const ofertaAlturaAlvo = 0.117 * H;
+    drawBadge(ctx, 'OFERTA', {
+      x: ofertaX, y: ofertaY, alturaAlvo: ofertaAlturaAlvo,
+      cor: cor.hex, corTexto: '#ffffff', align: 'left', rotationDeg: -3,
+    });
   }
 
-  // preço (alinhado embaixo da coluna esquerda)
-  const precoBaseY = dims.h - padY - 6;
-  ctx.fillStyle = '#000000';
-  ctx.font = '400 26px Anton';
-  const cifraoW = ctx.measureText('R$').width;
-  ctx.font = '400 92px Anton';
-  const inteiroTxt = String(preco.inteiro);
-  const inteiroW = ctx.measureText(inteiroTxt).width;
+  // 7. preco — sempre ativo — início x 21% / base y 87,9% · alvo 28% da altura
+  drawPreco(ctx, preco, {
+    anchorX: 0.21 * W,
+    baselineY: 0.879 * H,
+    alturaAlvo: 0.28 * H,
+    maxWidth: W - 0.21 * W - 0.05 * W,
+    align: 'left',
+  });
 
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  let px = colEsqX;
-  ctx.font = '400 26px Anton';
-  ctx.fillText('R$', px, precoBaseY - 6);
-  px += cifraoW + 6;
-  ctx.font = '400 92px Anton';
-  ctx.fillText(inteiroTxt, px, precoBaseY);
-  px += inteiroW + 10;
-  ctx.font = '400 40px Anton';
-  ctx.fillText(',', px, precoBaseY - 28);
-  ctx.font = '400 44px Anton';
-  ctx.fillText(preco.centavos, px + 8, precoBaseY - 2);
-
-  // imagem do produto (coluna direita)
-  const imgBoxW = 170, imgBoxH = 170;
-  const imgBoxX = colDirX + (colDirW - imgBoxW) / 2;
-  const imgBoxY = linhaBaixoY + 10;
+  // 8. imagem-produto — sempre ativo (placeholder OU foto) — estimado
+  const imgBoxSize = 0.18 * minDim;
+  const imgBoxX = 0.75 * W - imgBoxSize / 2;
+  const imgBoxY = 0.60 * H;
   if(state.imagemImg){
-    drawImageCover(ctx, state.imagemImg, imgBoxX, imgBoxY, imgBoxW, imgBoxH, 12);
+    drawImageCover(ctx, state.imagemImg, imgBoxX, imgBoxY, imgBoxSize, imgBoxSize, imgBoxSize * 0.07);
   } else {
+    ctx.save();
     ctx.strokeStyle = '#bbbbbb';
     ctx.setLineDash([6, 5]);
     ctx.lineWidth = 2;
-    roundRectPath(ctx, imgBoxX, imgBoxY, imgBoxW, imgBoxH, 12);
+    roundRectPath(ctx, imgBoxX, imgBoxY, imgBoxSize, imgBoxSize, imgBoxSize * 0.07);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#999999';
@@ -488,26 +441,109 @@ async function renderPadrao(canvas, state){
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ['IMAGEM DO', 'PRODUTO', '(OPCIONAL)'].forEach((linha, i) => {
-      ctx.fillText(linha, imgBoxX + imgBoxW / 2, imgBoxY + imgBoxH / 2 + (i - 1) * 16);
+      ctx.fillText(linha, imgBoxX + imgBoxSize / 2, imgBoxY + imgBoxSize / 2 + (i - 1) * 16);
     });
+    ctx.restore();
   }
 
-  // informação extra (peso/litragem) — abaixo da imagem
+  // 9. badge-info — ativo: state.infoExtra — x 75-94,5% / y 85,6-95,2%
   if(state.infoExtra){
-    ctx.font = '800 13px Montserrat';
-    const texto = state.infoExtra.toUpperCase();
-    const maxW = 190;
-    const linhas = wrapText(ctx, texto, maxW - 24);
-    const infoH = 20 + linhas.length * 16;
-    const infoY = precoBaseY - infoH;
+    const infoW = 0.195 * W, infoH = 0.096 * H;
+    const infoX = 0.75 * W, infoY = 0.856 * H;
+    ctx.save();
     ctx.fillStyle = cor.hex;
-    roundRectPath(ctx, imgBoxX + (imgBoxW - maxW) / 2, infoY, maxW, infoH, 8);
+    roundRectPath(ctx, infoX, infoY, infoW, infoH, infoH * 0.25);
     ctx.fill();
-    ctx.fillStyle = cor.light ? '#000000' : '#ffffff';
+    ctx.fillStyle = corTextoBadge;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const linhas = wrapText(ctx, state.infoExtra.toUpperCase(), infoW - infoW * 0.2);
+    ctx.font = `800 ${infoH * 0.22}px Montserrat`;
+    const lh = infoH * 0.3;
+    const startY = infoY + infoH / 2 - ((linhas.length - 1) * lh) / 2;
+    linhas.forEach((linha, i) => ctx.fillText(linha, infoX + infoW / 2, startY + i * lh));
+    ctx.restore();
+  }
+}
+
+// ==========================================================
+// MODELO: GELADEIRA  (856 x 904 medido — spec-camadas.md)
+// ==========================================================
+async function renderGeladeira(canvas, state){
+  await assetsReady();
+  const dims = state.orientacao === 'landscape' ? DESIGN.geladeiraLandscape : DESIGN.geladeiraPortrait;
+  const ctx = setupCanvas(canvas, dims.w, dims.h);
+  const W = dims.w, H = dims.h;
+  const cor = COLOR_MAP[state.cor] || COLOR_MAP.amarelo;
+  const preco = formatPreco(state.precoInteiro, state.precoCentavos);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 1. fundo-borda
+  const minDim = Math.min(W, H);
+  const raio = minDim * 0.03;
+  const stroke = W * 0.009;
+  ctx.fillStyle = '#ffffff';
+  roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
+  ctx.fill();
+  ctx.lineWidth = stroke;
+  ctx.strokeStyle = cor.hex;
+  roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
+  ctx.stroke();
+
+  // 2. logo — centralizado — x 35,7-62,7% / y 2,1-27,9%
+  const logoW = 0.27 * W;
+  const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : logoW * 0.82;
+  const logoX = W / 2 - logoW / 2, logoY = 0.021 * H;
+  if(logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
+
+  // 3. sparkles — ao redor do logo
+  drawSparkles(ctx, W / 2, logoY + logoH / 2, logoW / 2 + 0.12 * W, cor.hex);
+
+  // 4. nome-produto — centralizado — caixa x 22,4-77,7% / y 30,9-50,9%
+  ctx.fillStyle = '#000000';
+  const nome = (state.nome || 'NOME DO PRODUTO').toUpperCase();
+  const nomeCaixaX = 0.224 * W, nomeCaixaW = 0.777 * W - nomeCaixaX;
+  const nomeCaixaTop = 0.309 * H, nomeCaixaH = 0.5 * H - nomeCaixaTop;
+  const nomeFit = fitText(ctx, nome, {
+    fontFamily: 'Anton', min: 20, max: 60,
+    maxWidth: nomeCaixaW, maxHeight: nomeCaixaH, maxLines: 2,
+  });
+  const lineHeight = nomeFit.size * 1.05;
+  const blocoAltura = nomeFit.lines.length * lineHeight;
+  const nomeY = nomeCaixaTop + (nomeCaixaH - blocoAltura) / 2;
+  nomeFit.lines.forEach((linha, i) => {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    linhas.forEach((linha, i) => {
-      ctx.fillText(linha, imgBoxX + imgBoxW / 2, infoY + 20 + i * 16);
-    });
-  }
+    ctx.fillText(linha, W / 2, nomeY + i * lineHeight + nomeFit.size * 0.82);
+  });
+  const nomeBottomY = nomeY + blocoAltura;
+
+  // 5. linha-curva — abaixo do nome, 70% do card, centralizada
+  drawLinhaCurva(ctx, W / 2 - 0.35 * W, nomeBottomY + 0.015 * H, 0.7 * W, cor.hex);
+
+  // 6. pincela — atrás do preço — x 5,4-93,8% / y 60,3-97,2%
+  const pincelaX = 0.054 * W, pincelaY = 0.603 * H;
+  const pincelaW = 0.938 * W - pincelaX, pincelaH = 0.972 * H - pincelaY;
+  drawPincela(ctx, pincelaX, pincelaY, pincelaW, pincelaH, cor.hex);
+
+  // 7. preco — centralizado sobre a pincela — alvo 33% da altura
+  drawPreco(ctx, preco, {
+    anchorX: W / 2,
+    baselineY: pincelaY + pincelaH * 0.72,
+    alturaAlvo: 0.33 * H,
+    maxWidth: pincelaW * 0.94,
+    align: 'center',
+  });
+
+  // 8. selo-resistente — canto inferior direito (estimado)
+  const gotaSize = 0.02 * W;
+  const gotaX = W - 0.16 * W, gotaY = H - 0.065 * H;
+  drawGota(ctx, gotaX, gotaY, gotaSize * 1.4);
+  ctx.fillStyle = '#444444';
+  ctx.font = `700 ${0.011 * H}px Montserrat`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('RESISTENTE', gotaX + gotaSize * 1.6, gotaY - gotaSize * 0.2);
+  ctx.fillText('À ÁGUA', gotaX + gotaSize * 1.6, gotaY + 0.014 * H);
 }
