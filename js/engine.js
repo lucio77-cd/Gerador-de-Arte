@@ -511,4 +511,3 @@ async function renderPadrao(canvas, state){
     });
   }
 }
-
