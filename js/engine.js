@@ -387,7 +387,7 @@ async function renderPadrao(canvas, state){
   const nomeCaixaTop = 0.186 * H;
   const nomeCaixaBottom = 0.435 * H;
   const nomeFit = fitText(ctx, nome, {
-    fontFamily: 'Anton', min: 20, max: 72,
+    fontFamily: 'Anton', min: 20 * state.escalaNome, max: 72 * state.escalaNome,
     maxWidth: colW, maxHeight: nomeCaixaBottom - Math.max(nomeTopY, nomeCaixaTop) + (nomeCaixaBottom - nomeCaixaTop),
     maxLines: 2,
   });
@@ -423,7 +423,7 @@ async function renderPadrao(canvas, state){
   });
 
   // 8. imagem-produto — sempre ativo (placeholder OU foto) — estimado
-  const imgBoxSize = 0.18 * minDim;
+  const imgBoxSize = 0.18 * minDim * state.escalaImagem;
   const imgBoxX = 0.75 * W - imgBoxSize / 2;
   const imgBoxY = 0.60 * H;
   if(state.imagemImg){
@@ -506,7 +506,7 @@ async function renderGeladeira(canvas, state){
   const nomeCaixaX = 0.224 * W, nomeCaixaW = 0.777 * W - nomeCaixaX;
   const nomeCaixaTop = 0.309 * H, nomeCaixaH = 0.5 * H - nomeCaixaTop;
   const nomeFit = fitText(ctx, nome, {
-    fontFamily: 'Anton', min: 20, max: 60,
+    fontFamily: 'Anton', min: 20 * state.escalaNome, max: 60 * state.escalaNome,
     maxWidth: nomeCaixaW, maxHeight: nomeCaixaH, maxLines: 2,
   });
   const lineHeight = nomeFit.size * 1.05;
