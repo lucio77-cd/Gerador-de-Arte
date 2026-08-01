@@ -12,6 +12,10 @@ const state = {
   mostrarOferta: true,
   infoExtra: '',
   imagemDataUrl: null,
+  fontNome: 40,   // tamanho do nome do produto (modelo Padrão), em px
+  fontPreco: 96,  // tamanho do preço (modelo Padrão), em px — os demais
+                  // pedaços do preço (R$, vírgula, centavos) escalam
+                  // proporcionalmente a partir deste valor em templates.js
 };
 
 const preview = document.getElementById('preview');
@@ -94,6 +98,24 @@ fieldBindings.forEach(([id, key]) => {
 document.getElementById('mostrarOferta').addEventListener('change', (e) => {
   state.mostrarOferta = e.target.checked;
   renderPreview();
+});
+
+// ==========================================================
+// SLIDERS DE TAMANHO DE FONTE (modelo Padrão)
+// ==========================================================
+const fontSliderBindings = [
+  ['fonteNome', 'fontNome', 'fonteNomeValue'],
+  ['fontePreco', 'fontPreco', 'fontePrecoValue'],
+];
+
+fontSliderBindings.forEach(([id, key, valueId]) => {
+  const el = document.getElementById(id);
+  const valueEl = document.getElementById(valueId);
+  el.addEventListener('input', () => {
+    state[key] = Number(el.value);
+    valueEl.textContent = `${el.value}px`;
+    renderPreview();
+  });
 });
 
 // Upload de imagem do produto (avatar quadrado, toca pra escolher/trocar)
