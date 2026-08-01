@@ -174,30 +174,19 @@ function renderPadraoTemplate(data){
     ? `<div class="pad-info">${escapeHtml(data.infoExtra.toUpperCase())}</div>`
     : '';
 
-  // Tamanho do nome: valor direto do slider (padrão: 40px, igual ao CSS)
-  const fontNome = Number(data.fontNome) || 40;
-
-  // Tamanho do preço: o slider controla o "inteiro" (padrão: 96px) e os
-  // demais pedaços (R$, vírgula, centavos) escalam proporcionalmente,
-  // mantendo a mesma relação de tamanho que já existia no CSS original
-  // (cifrão ~31%, vírgula/centavos ~48% do tamanho do inteiro)
-  const fontPrecoInteiro = Number(data.fontPreco) || 96;
-  const fontCifrao = Math.round(fontPrecoInteiro * 0.3125);
-  const fontCentavos = Math.round(fontPrecoInteiro * 0.479);
-
   return `
     <div class="card-padrao" style="--accent:${cor.hex}" data-accent-light="${cor.light}">
       ${logoTag('pad-logo')}
       ${categoriaHtml}
-      <div class="pad-nome" style="font-size:${fontNome}px">${escapeHtml(nome)}</div>
+      <div class="pad-nome">${escapeHtml(nome)}</div>
       ${linhaCurvaSvg(cor.hex, 'padrao')}
       ${ofertaHtml}
       <div class="pad-preco">
-        <span class="cifrao" style="font-size:${fontCifrao}px">R$</span>
-        <span class="inteiro" style="font-size:${fontPrecoInteiro}px">${preco.inteiro}</span>
+        <span class="cifrao">R$</span>
+        <span class="inteiro">${preco.inteiro}</span>
         <span class="centavos-wrap">
-          <span class="virgula" style="font-size:${fontCentavos}px">,</span>
-          <span class="centavos" style="font-size:${fontCentavos}px">${preco.centavos}</span>
+          <span class="virgula">,</span>
+          <span class="centavos">${preco.centavos}</span>
         </span>
       </div>
       ${imagemHtml}
