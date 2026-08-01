@@ -29,6 +29,14 @@
         <input type="text" id="nomeProduto" placeholder="Ex: Pão Francês" maxlength="40">
       </div>
 
+      <div class="field">
+        <label for="escalaNome">
+          Tamanho do nome
+          <span class="field-value" id="escalaNomeValue">100%</span>
+        </label>
+        <input type="range" id="escalaNome" min="60" max="150" step="5" value="100">
+      </div>
+
       <div class="field only-padrao">
         <label for="categoria">Categoria (tag pequena)</label>
         <input type="text" id="categoria" placeholder="Ex: PADARIA" maxlength="20">
@@ -80,6 +88,14 @@
         </div>
         <span class="upload-hint">Toque na miniatura pra escolher/trocar</span>
         <input type="file" id="imagemProduto" accept="image/*" class="visually-hidden">
+      </div>
+
+      <div class="field only-padrao">
+        <label for="escalaImagem">
+          Tamanho da imagem do produto
+          <span class="field-value" id="escalaImagemValue">100%</span>
+        </label>
+        <input type="range" id="escalaImagem" min="60" max="160" step="5" value="100">
       </div>
 
       <button type="button" id="btnBaixar" class="btn-primary">Baixar arte (PNG)</button>
