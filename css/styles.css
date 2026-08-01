@@ -294,6 +294,16 @@ body.model-geladeira .only-geladeira{ display: flex; }
 }
 
 /* ==========================================================
+   ELEMENTOS COMPARTILHADOS (linha curva)
+========================================================== */
+.linha-curva{
+  display: block;
+  width: 70%;
+  height: 20px;
+  margin: 0 auto 14px;
+}
+
+/* ==========================================================
    TEMPLATE: GELADEIRA
 ========================================================== */
 .card-geladeira{
@@ -311,11 +321,27 @@ body.model-geladeira .only-geladeira{ display: flex; }
 .card-geladeira.orient-portrait{ width: 378px; height: 567px; }
 .card-geladeira.orient-landscape{ width: 567px; height: 378px; justify-content: center; }
 
+.gel-logo-wrap{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
 .gel-logo{
   width: 110px;
   height: auto;
-  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
 }
+
+/* Sparkles/traços decorativos nos dois lados do logo */
+.gel-sparkle{ position: absolute; z-index: 0; }
+.gel-sparkle-l1{ width: 16px; height: 16px; top: -14px; left: -34px; transform: rotate(-10deg); }
+.gel-sparkle-l2{ width: 20px; height: 6px; top: 14px; left: -46px; transform: rotate(35deg); }
+.gel-sparkle-r1{ width: 16px; height: 16px; top: -14px; right: -34px; transform: rotate(10deg); }
+.gel-sparkle-r2{ width: 20px; height: 6px; top: 14px; right: -46px; transform: rotate(-35deg); }
+
 .gel-nome{
   font-family: var(--font-title);
   font-size: 32px;
@@ -326,13 +352,6 @@ body.model-geladeira .only-geladeira{ display: flex; }
   margin: 4px 0 6px;
   word-break: break-word;
 }
-.gel-linha{
-  width: 70%;
-  height: 3px;
-  background: var(--accent, var(--amarelo));
-  border-radius: 4px;
-  margin-bottom: 14px;
-}
 .gel-preco-wrap{
   position: relative;
   width: 100%;
@@ -341,13 +360,11 @@ body.model-geladeira .only-geladeira{ display: flex; }
   align-items: center;
   justify-content: center;
 }
-.gel-preco-fundo{
+.gel-preco-pincela{
   position: absolute;
-  width: 92%;
-  height: 62%;
-  background: var(--accent, var(--amarelo));
-  border-radius: 40% 60% 55% 45% / 50% 45% 55% 50%;
-  opacity: 0.95;
+  width: 100%;
+  height: 68%;
+  transform: rotate(-2deg);
 }
 .gel-preco{
   position: relative;
@@ -375,6 +392,7 @@ body.model-geladeira .only-geladeira{ display: flex; }
   color: #444;
   text-align: right;
 }
+.gel-gota-icon{ width: 16px; height: 16px; flex-shrink: 0; }
 
 /* ==========================================================
    TEMPLATE: PADRÃO
@@ -424,13 +442,10 @@ body.model-geladeira .only-geladeira{ display: flex; }
   text-transform: uppercase;
   align-self: start;
 }
-.pad-linha{
+.pad-nome + .linha-curva{
   grid-column: 2 / 3;
   width: 60%;
-  height: 3px;
-  background: var(--accent, var(--vermelho));
-  border-radius: 4px;
-  margin-top: 6px;
+  margin: 6px 0 0;
 }
 
 .pad-oferta{
