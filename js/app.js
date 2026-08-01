@@ -12,6 +12,8 @@ const state = {
   mostrarOferta: true,
   infoExtra: '',
   imagemImg: null, // objeto Image() já decodificado — não mais dataURL cru
+  escalaNome: 1,    // multiplicador manual sobre o auto-ajuste do nome (1 = 100%)
+  escalaImagem: 1,  // multiplicador manual sobre o tamanho da imagem do produto (Padrão)
 };
 
 const canvas = document.getElementById('artCanvas');
@@ -93,6 +95,24 @@ fieldBindings.forEach(([id, key]) => {
 document.getElementById('mostrarOferta').addEventListener('change', (e) => {
   state.mostrarOferta = e.target.checked;
   renderPreview();
+});
+
+// ==========================================================
+// SLIDERS DE ESCALA (nome do produto / imagem do produto)
+// ==========================================================
+const escalaBindings = [
+  ['escalaNome', 'escalaNome', 'escalaNomeValue'],
+  ['escalaImagem', 'escalaImagem', 'escalaImagemValue'],
+];
+
+escalaBindings.forEach(([id, key, valueId]) => {
+  const el = document.getElementById(id);
+  const valueEl = document.getElementById(valueId);
+  el.addEventListener('input', () => {
+    state[key] = Number(el.value) / 100;
+    valueEl.textContent = `${el.value}%`;
+    renderPreview();
+  });
 });
 
 // ==========================================================
