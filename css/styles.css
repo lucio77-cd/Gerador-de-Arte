@@ -396,8 +396,8 @@ body.model-geladeira .only-geladeira{ display: flex; }
 }
 .gel-preco .cifrao{ font-size: 26px; margin-right: 4px; margin-top: 10px; }
 .gel-preco .inteiro{ font-size: 84px; line-height: 0.9; }
-.gel-preco .centavos-wrap{ display:flex; flex-direction: column; margin-left: 4px; }
-.gel-preco .virgula{ font-size: 40px; line-height: 0.6; }
+.gel-preco .centavos-wrap{ display:flex; flex-direction: column; margin-left: 6px; }
+.gel-preco .virgula{ font-size: 40px; line-height: 0.6; margin-bottom: 2px; }
 .gel-preco .centavos{ font-size: 40px; line-height: 0.9; }
 
 .gel-resistente{
@@ -464,6 +464,8 @@ body.model-geladeira .only-geladeira{ display: flex; }
 }
 .pad-nome + .linha-curva{
   grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  align-self: end;
   width: 60%;
   margin: 6px 0 0;
 }
@@ -494,8 +496,8 @@ body.model-geladeira .only-geladeira{ display: flex; }
 }
 .pad-preco .cifrao{ font-size: 30px; margin-right: 4px; margin-top: 14px; }
 .pad-preco .inteiro{ font-size: 96px; line-height: 0.9; }
-.pad-preco .centavos-wrap{ display:flex; flex-direction: column; margin-left: 6px; }
-.pad-preco .virgula{ font-size: 46px; line-height: 0.6; }
+.pad-preco .centavos-wrap{ display:flex; flex-direction: column; margin-left: 8px; }
+.pad-preco .virgula{ font-size: 46px; line-height: 0.6; margin-bottom: 2px; }
 .pad-preco .centavos{ font-size: 46px; line-height: 0.9; }
 
 .pad-imagem{
