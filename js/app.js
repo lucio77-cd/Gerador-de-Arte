@@ -14,6 +14,7 @@ const state = {
   imagemImg: null, // objeto Image() já decodificado — não mais dataURL cru
   escalaNome: 1,    // multiplicador manual sobre o auto-ajuste do nome (1 = 100%)
   escalaImagem: 1,  // multiplicador manual sobre o tamanho da imagem do produto (Padrão)
+  escalaPreco: 1,   // multiplicador manual sobre o alvo de tamanho do preço
 };
 
 const canvas = document.getElementById('artCanvas');
@@ -103,6 +104,7 @@ document.getElementById('mostrarOferta').addEventListener('change', (e) => {
 const escalaBindings = [
   ['escalaNome', 'escalaNome', 'escalaNomeValue'],
   ['escalaImagem', 'escalaImagem', 'escalaImagemValue'],
+  ['escalaPreco', 'escalaPreco', 'escalaPrecoValue'],
 ];
 
 escalaBindings.forEach(([id, key, valueId]) => {
