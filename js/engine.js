@@ -238,7 +238,7 @@ function drawPreco(ctx, { inteiro, centavos }, { anchorX, baselineY, alturaAlvo,
   px += ctx.measureText(inteiro).width + 8;
 
   ctx.font = `400 ${fontInteiro * RATIO_CIFRAO}px Anton`;
-  ctx.fillText(',', px, baselineY - fontInteiro * 0.32);
+  ctx.fillText(',', px, baselineY - fontInteiro * 0.04);
 
   ctx.font = `400 ${fontInteiro * RATIO_CENTAVOS}px Anton`;
   ctx.fillText(centavos, px + 6, baselineY - fontInteiro * 0.04);
@@ -417,7 +417,7 @@ async function renderPadrao(canvas, state){
   drawPreco(ctx, preco, {
     anchorX: 0.21 * W,
     baselineY: 0.879 * H,
-    alturaAlvo: 0.28 * H,
+    alturaAlvo: 0.28 * H * state.escalaPreco,
     maxWidth: W - 0.21 * W - 0.05 * W,
     align: 'left',
   });
@@ -531,7 +531,7 @@ async function renderGeladeira(canvas, state){
   drawPreco(ctx, preco, {
     anchorX: W / 2,
     baselineY: pincelaY + pincelaH * 0.72,
-    alturaAlvo: 0.33 * H,
+    alturaAlvo: 0.33 * H * state.escalaPreco,
     maxWidth: pincelaW * 0.94,
     align: 'center',
   });
