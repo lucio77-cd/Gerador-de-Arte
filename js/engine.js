@@ -7,6 +7,20 @@
 // das artes de referência, documentados em spec-camadas.md. Todas as
 // posições são em % do card (0 a 1), não pixel fixo, então escalam
 // junto se o card mudar de tamanho.
+//
+// CHANGELOG (revisão de design — vazio estrutural / selo Promoção):
+// - Novo estado `state.estadoImagem` ('foto' | 'promocao' | 'nenhum')
+//   substitui a checagem implícita em `state.imagemImg` no modelo Padrão.
+// - Âncoras verticais do modelo Padrão reaproximadas (nome/oferta/preço)
+//   pra reduzir o vão vazio no meio do cartão.
+// - Caixa de imagem/selo do modelo Padrão aumentada e realinhada com a
+//   coluna direita (oferta/info), corrigindo a assimetria de peso.
+// - Modelo Geladeira: pincelada aumentada pra conter o preço por
+//   completo (antes o "8" estourava o contorno superior).
+// - Sparkles agora escalam com a altura real do logo, não só a largura
+//   do card.
+// - Selo "Resistente à água" ganhou fundo/contorno — antes era texto
+//   solto de rodapé.
 
 const CANVAS_SCALE = 2; // resolução interna (nitidez tipo "retina")
 
@@ -18,6 +32,12 @@ const COLOR_MAP = {
   laranja:  { hex: '#F57C00', light: false },
   roxo:     { hex: '#7B1FA2', light: false },
 };
+
+// Quando o selo "OFERTA" e o selo "Promoção" estão ativos ao mesmo
+// tempo, o selo de Promoção encolhe por este fator pra nunca competir
+// em peso visual com a OFERTA (que deve continuar sendo a chamada
+// principal). Ajustável num só lugar.
+const FATOR_REDUCAO_PROMOCAO_COM_OFERTA = 0.85;
 
 // Proporções medidas nas referências (spec-camadas.md):
 //   Padrão:    995 x 957  -> 1,04:1 (quase quadrado)
@@ -194,6 +214,36 @@ function drawBadge(ctx, texto, { x, y, alturaAlvo, cor, corTexto, align = 'left'
   ctx.restore();
 
   return { w: badgeW, h: badgeH };
+}
+
+// ----------------------------------------------------------
+// CAMADA: selo-promoção (modelo Padrão) — ocupa o espaço da imagem do
+// produto quando não há foto. Desenhado como contorno (não preenchido),
+// de propósito: precisa ficar no mesmo nível de acabamento da OFERTA,
+// mas sem competir em peso com ela quando as duas estão ativas.
+// ----------------------------------------------------------
+function drawSeloPromocao(ctx, x, y, w, h, cor){
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate((-3 * Math.PI) / 180); // mesma inclinação do selo OFERTA — mesma linguagem visual
+  ctx.translate(-w / 2, -h / 2);
+
+  const espessura = Math.max(2, w * 0.035);
+  ctx.strokeStyle = cor.hex;
+  ctx.lineWidth = espessura;
+  roundRectPath(ctx, espessura / 2, espessura / 2, w - espessura, h - espessura, h * 0.14);
+  ctx.stroke();
+
+  ctx.fillStyle = cor.hex;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `800 ${h * 0.15}px Montserrat`;
+  const linhas = wrapText(ctx, 'PROMOÇÃO', w * 0.78);
+  const lh = h * 0.19;
+  const startY = h / 2 - ((linhas.length - 1) * lh) / 2;
+  linhas.forEach((linha, i) => ctx.fillText(linha, w / 2, startY + i * lh));
+
+  ctx.restore();
 }
 
 // ----------------------------------------------------------
@@ -403,32 +453,53 @@ async function renderPadrao(canvas, state){
   // 5. linha-curva — sempre ativo — logo abaixo do nome, 60% da coluna
   drawLinhaCurva(ctx, colX, nomeBottomY + 0.015 * H, colW * 0.6, cor.hex);
 
-  // 6. selo-oferta — ativo: state.mostrarOferta — x 4,1-26,7% / y 46-57,7%
+  // 6. selo-oferta — ativo: state.mostrarOferta — x 4,1-26,7%
+  // ANCORA REVISADA: aproximada do fim do nome (era 0,46H) pra reduzir
+  // o vão vazio entre o bloco do nome e o bloco do preço.
+  const ofertaY = 0.44 * H;
+  const ofertaAlturaAlvo = 0.117 * H;
   if(state.mostrarOferta){
-    const ofertaX = 0.041 * W, ofertaY = 0.46 * H;
-    const ofertaAlturaAlvo = 0.117 * H;
     drawBadge(ctx, 'OFERTA', {
-      x: ofertaX, y: ofertaY, alturaAlvo: ofertaAlturaAlvo,
+      x: 0.041 * W, y: ofertaY, alturaAlvo: ofertaAlturaAlvo,
       cor: cor.hex, corTexto: '#ffffff', align: 'left', rotationDeg: -3,
     });
   }
 
-  // 7. preco — sempre ativo — início x 21% / base y 87,9% · alvo 28% da altura
+  // 7. preco — sempre ativo — início x 21%
+  // ANCORA REVISADA: baseline subiu de 0,879H pra 0,82H — fecha parte
+  // do vão vazio e dá mais respiro entre o preço e a borda inferior.
   drawPreco(ctx, preco, {
     anchorX: 0.21 * W,
-    baselineY: 0.879 * H,
+    baselineY: 0.82 * H,
     alturaAlvo: 0.28 * H * state.escalaPreco,
     maxWidth: W - 0.21 * W - 0.05 * W,
     align: 'left',
   });
 
-  // 8. imagem-produto — sempre ativo (placeholder OU foto) — estimado
-  const imgBoxSize = 0.18 * minDim * state.escalaImagem;
+  // 8. imagem-produto / selo-promoção / nenhum — três estados
+  // (state.estadoImagem: 'foto' | 'promocao' | 'nenhum')
+  // CAIXA REVISADA: aumentada (era 0,18*minDim) e realinhada com a
+  // coluna direita (oferta/info), pra preencher o vazio do lado direito
+  // e formar um bloco com peso equivalente ao do preço.
+  const imgBoxSize = 0.24 * minDim * state.escalaImagem;
   const imgBoxX = 0.75 * W - imgBoxSize / 2;
-  const imgBoxY = 0.60 * H;
-  if(state.imagemImg){
+  const imgBoxY = 0.56 * H;
+
+  if(state.estadoImagem === 'foto' && state.imagemImg){
     drawImageCover(ctx, state.imagemImg, imgBoxX, imgBoxY, imgBoxSize, imgBoxSize, imgBoxSize * 0.07);
-  } else {
+  } else if(state.estadoImagem === 'promocao'){
+    // encolhe o selo se a OFERTA também estiver ativa, pra nunca
+    // competir em peso visual com ela
+    const fator = state.mostrarOferta ? FATOR_REDUCAO_PROMOCAO_COM_OFERTA : 1;
+    const seloSize = imgBoxSize * fator;
+    const seloX = imgBoxX + (imgBoxSize - seloSize) / 2;
+    const seloY = imgBoxY + (imgBoxSize - seloSize) / 2;
+    drawSeloPromocao(ctx, seloX, seloY, seloSize, seloSize, cor);
+  } else if(state.estadoImagem !== 'nenhum'){
+    // Fallback: 'foto' selecionado mas ainda sem arquivo carregado —
+    // mantém o placeholder tracejado só nesse caso transitório (o
+    // usuário está no meio da escolha do arquivo), nunca no PNG final
+    // de um estado "nenhum" deliberado.
     ctx.save();
     ctx.strokeStyle = '#bbbbbb';
     ctx.setLineDash([6, 5]);
@@ -440,8 +511,8 @@ async function renderPadrao(canvas, state){
     ctx.font = '600 12px Montserrat';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ['IMAGEM DO', 'PRODUTO', '(OPCIONAL)'].forEach((linha, i) => {
-      ctx.fillText(linha, imgBoxX + imgBoxSize / 2, imgBoxY + imgBoxSize / 2 + (i - 1) * 16);
+    ['ESCOLHA UMA', 'FOTO...'].forEach((linha, i) => {
+      ctx.fillText(linha, imgBoxX + imgBoxSize / 2, imgBoxY + imgBoxSize / 2 + (i - 0.5) * 16);
     });
     ctx.restore();
   }
@@ -498,7 +569,11 @@ async function renderGeladeira(canvas, state){
   if(logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
 
   // 3. sparkles — ao redor do logo
-  drawSparkles(ctx, W / 2, logoY + logoH / 2, logoW / 2 + 0.12 * W, cor.hex);
+  // RAIO REVISADO: antes usava só 0,12*W (largura do card), sem relação
+  // com o tamanho real do logo carregado. Agora escala com logoH, então
+  // fica proporcional mesmo se o aspect ratio do arquivo de logo mudar.
+  const sparkleRaio = logoW / 2 + logoH * 0.5;
+  drawSparkles(ctx, W / 2, logoY + logoH / 2, sparkleRaio, cor.hex);
 
   // 4. nome-produto — centralizado — caixa x 22,4-77,7% / y 30,9-50,9%
   ctx.fillStyle = '#000000';
@@ -522,28 +597,50 @@ async function renderGeladeira(canvas, state){
   // 5. linha-curva — abaixo do nome, 70% do card, centralizada
   drawLinhaCurva(ctx, W / 2 - 0.35 * W, nomeBottomY + 0.015 * H, 0.7 * W, cor.hex);
 
-  // 6. pincela — atrás do preço — x 5,4-93,8% / y 60,3-97,2%
-  const pincelaX = 0.054 * W, pincelaY = 0.603 * H;
+  // 6. pincela — atrás do preço
+  // ALTURA REVISADA: começava em 0,603H; subiu pra 0,53H pra fechar o
+  // vão vazio abaixo do nome e, principalmente, pra dar altura extra
+  // suficiente pro preço não estourar o contorno superior da forma.
+  const pincelaX = 0.054 * W, pincelaY = 0.53 * H;
   const pincelaW = 0.938 * W - pincelaX, pincelaH = 0.972 * H - pincelaY;
   drawPincela(ctx, pincelaX, pincelaY, pincelaW, pincelaH, cor.hex);
 
   // 7. preco — centralizado sobre a pincela — alvo 33% da altura
+  // BASELINE REVISADA: multiplicador subiu de 0,72 pra 0,80 dentro da
+  // pincelada — empurra o preço pra baixo o suficiente pra caber
+  // inteiro dentro do contorno, mesmo com a pincelada maior do item 6.
   drawPreco(ctx, preco, {
     anchorX: W / 2,
-    baselineY: pincelaY + pincelaH * 0.72,
+    baselineY: pincelaY + pincelaH * 0.80,
     alturaAlvo: 0.33 * H * state.escalaPreco,
     maxWidth: pincelaW * 0.94,
     align: 'center',
   });
 
-  // 8. selo-resistente — canto inferior direito (estimado)
-  const gotaSize = 0.02 * W;
-  const gotaX = W - 0.16 * W, gotaY = H - 0.065 * H;
-  drawGota(ctx, gotaX, gotaY, gotaSize * 1.4);
+  // 8. selo-resistente — canto inferior direito
+  // REFORÇADO: antes era só texto solto (0,011H) ao lado do ícone —
+  // ganhou fundo/contorno arredondado no mesmo padrão dos outros selos,
+  // e fonte maior, pra não ficar com peso de rodapé esquecido.
+  const gotaSize = 0.024 * W;
+  const seloTextoW = 0.135 * W;
+  const seloH = 0.058 * H;
+  const seloX = W - 0.05 * W - seloTextoW - gotaSize * 1.6;
+  const seloY = H - 0.075 * H - seloH;
+
+  ctx.save();
+  ctx.strokeStyle = '#cccccc';
+  ctx.lineWidth = Math.max(1.5, W * 0.0025);
+  roundRectPath(ctx, seloX, seloY, gotaSize * 1.6 + seloTextoW, seloH, seloH / 2);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGota(ctx, seloX + gotaSize * 0.9, seloY + seloH / 2, gotaSize * 1.3);
+
   ctx.fillStyle = '#444444';
-  ctx.font = `700 ${0.011 * H}px Montserrat`;
+  ctx.font = `700 ${0.016 * H}px Montserrat`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('RESISTENTE', gotaX + gotaSize * 1.6, gotaY - gotaSize * 0.2);
-  ctx.fillText('À ÁGUA', gotaX + gotaSize * 1.6, gotaY + 0.014 * H);
+  const textoX = seloX + gotaSize * 1.7;
+  ctx.fillText('RESISTENTE', textoX, seloY + seloH * 0.42);
+  ctx.fillText('À ÁGUA', textoX, seloY + seloH * 0.82);
 }

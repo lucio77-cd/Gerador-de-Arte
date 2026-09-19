@@ -1,6 +1,11 @@
 // ==========================================================
 // ESTADO
 // ==========================================================
+// CHANGELOG (revisão de design — selo Promoção):
+// - Novo campo `estadoImagem`: 'foto' | 'promocao' | 'nenhum'.
+//   Substitui a checagem implícita em `imagemImg` truthy/falsy que
+//   existia antes — agora o motor (engine.js) decide o que desenhar
+//   olhando esse campo, não a presença de um arquivo.
 const state = {
   model: 'geladeira',
   nome: '',
@@ -11,9 +16,10 @@ const state = {
   orientacao: 'portrait',
   mostrarOferta: true,
   infoExtra: '',
-  imagemImg: null, // objeto Image() já decodificado — não mais dataURL cru
+  imagemImg: null,     // objeto Image() já decodificado — não mais dataURL cru
+  estadoImagem: 'nenhum', // 'foto' | 'promocao' | 'nenhum' — controla o espaço da imagem no modelo Padrão
   escalaNome: 1,    // multiplicador manual sobre o auto-ajuste do nome (1 = 100%)
-  escalaImagem: 1,  // multiplicador manual sobre o tamanho da imagem do produto (Padrão)
+  escalaImagem: 1,  // multiplicador manual sobre o tamanho da imagem/selo do produto (Padrão)
   escalaPreco: 1,   // multiplicador manual sobre o alvo de tamanho do preço
 };
 
@@ -118,6 +124,34 @@ escalaBindings.forEach(([id, key, valueId]) => {
 });
 
 // ==========================================================
+// SELETOR: ESPAÇO DA IMAGEM (Foto / Selo "Promoção" / Nenhum)
+// ==========================================================
+const estadoImagemSeletorEl = document.getElementById('estadoImagemSeletor');
+const uploadFotoFieldEl = document.getElementById('uploadFotoField');
+
+function setEstadoImagem(novoEstado, { abrirSeletorArquivo = false } = {}){
+  state.estadoImagem = novoEstado;
+
+  estadoImagemSeletorEl.querySelectorAll('.segmented-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.estado === novoEstado);
+  });
+
+  uploadFotoFieldEl.style.display = novoEstado === 'foto' ? 'flex' : 'none';
+
+  if(novoEstado === 'foto' && abrirSeletorArquivo && !state.imagemImg){
+    imagemInputEl.click();
+  }
+
+  renderPreview();
+}
+
+estadoImagemSeletorEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.segmented-btn');
+  if(!btn) return;
+  setEstadoImagem(btn.dataset.estado, { abrirSeletorArquivo: true });
+});
+
+// ==========================================================
 // UPLOAD DE FOTO DO PRODUTO
 // ==========================================================
 // BUG CORRIGIDO: antes a imagem entrava no estado como uma string dataURL
@@ -186,6 +220,7 @@ imagemInputEl.addEventListener('change', async (e) => {
   if(!file) return;
   try{
     state.imagemImg = await resizeImageToImg(file);
+    state.estadoImagem = 'foto';
     updateAvatarPreview();
     renderPreview();
   }catch(err){
@@ -199,7 +234,10 @@ document.getElementById('btnRemoverImagem').addEventListener('click', (e) => {
   state.imagemImg = null;
   imagemInputEl.value = '';
   updateAvatarPreview();
-  renderPreview();
+  // Ao remover a foto o espaço não volta sozinho pro selo "Promoção" —
+  // isso seria uma mudança de aparência sem ação explícita do usuário.
+  // Cai em 'nenhum' (área em branco) até o usuário escolher outra opção.
+  setEstadoImagem('nenhum');
 });
 
 // ==========================================================
@@ -234,8 +272,8 @@ window.addEventListener('resize', fitPreviewToScreen);
 // ==========================================================
 // EXPORTAR PNG
 // ==========================================================
-// Não existe mais "capturar o DOM" — o canvas já É a imagem. Exportar é
-// só pedir pro próprio canvas serializar seus pixels como PNG.
+// Não existe "capturar o DOM" — o canvas já É a imagem. Exportar é só
+// pedir pro próprio canvas serializar seus pixels como PNG.
 const btnBaixarEl = document.getElementById('btnBaixar');
 
 function nomeArquivoSeguro(nome){
