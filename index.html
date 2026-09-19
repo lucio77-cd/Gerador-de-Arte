@@ -86,8 +86,25 @@
         <input type="text" id="infoExtra" placeholder="Ex: 500g" maxlength="30">
       </div>
 
+      <!--
+        Espaço da imagem do produto — 3 estados (desafio da cliente:
+        a foto nem sempre é usada, e o espaço não pode sobrar com texto
+        de instrução na arte final):
+          - Foto: mostra a miniatura de upload abaixo
+          - Selo "Promoção": desenha um selo no lugar da foto (engine.js)
+          - Nenhum: área fica em branco, sem placeholder
+      -->
       <div class="field only-padrao">
-        <label>Foto do produto (opcional)</label>
+        <label>Espaço da imagem</label>
+        <div class="segmented" id="estadoImagemSeletor">
+          <button type="button" class="segmented-btn" data-estado="foto">Foto</button>
+          <button type="button" class="segmented-btn" data-estado="promocao">Selo "Promoção"</button>
+          <button type="button" class="segmented-btn active" data-estado="nenhum">Nenhum</button>
+        </div>
+      </div>
+
+      <div class="field only-padrao" id="uploadFotoField" style="display:none;">
+        <label>Foto do produto</label>
         <div class="upload-avatar" id="uploadAvatar">
           <div class="upload-avatar-preview" id="uploadAvatarPreview">
             <span class="upload-icon">📷</span>
@@ -100,7 +117,7 @@
 
       <div class="field only-padrao">
         <label for="escalaImagem">
-          Tamanho da imagem do produto
+          Tamanho da imagem/selo
           <span class="field-value" id="escalaImagemValue">100%</span>
         </label>
         <input type="range" id="escalaImagem" min="60" max="160" step="5" value="100">
