@@ -230,7 +230,7 @@
       `/${posicao.imageName} Do`,
       'Q','0 G',`${MARK_WIDTH_PT} w`,
       ...segments.map(([x1,y1,x2,y2])=>`${x1.toFixed(4)} ${y1.toFixed(4)} m ${x2.toFixed(4)} ${y2.toFixed(4)} l S`)
-    ].join('\\n')+'\\n';
+    ].join('\n')+'\n';
   }
 
   async function gerarPDFMultiplo(itens){
@@ -306,9 +306,9 @@
       const id = nextId++;
       imageRefs[index] = id;
       objects[id] = concatBytes([
-        textBytes(`${id} 0 obj\\n<< /Type /XObject /Subtype /Image /Width ${item.imageWidth} /Height ${item.imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate false /Filter /DCTDecode /Length ${item.jpegBytes.length} >>\\nstream\\n`),
+        textBytes(`${id} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${item.imageWidth} /Height ${item.imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate false /Filter /DCTDecode /Length ${item.jpegBytes.length} >>\nstream\n`),
         item.jpegBytes,
-        textBytes('\\nendstream\\nendobj\\n')
+        textBytes('\nendstream\nendobj\n')
       ]);
     });
 
@@ -323,17 +323,17 @@
         return criarConteudoPosicionado({...pos,imageName:`Im${pos.itemIndex}`},item.larguraMm,item.alturaMm);
       }).join('');
       const contentBytes=textBytes(commands);
-      objects[pageId]=textBytes(`${pageId} 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${mmToPt(PAGE.widthMm).toFixed(4)} ${mmToPt(PAGE.heightMm).toFixed(4)}] /Resources << /XObject << ${resources} >> >> /Contents ${contentId} 0 R >>\\nendobj\\n`);
+      objects[pageId]=textBytes(`${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${mmToPt(PAGE.widthMm).toFixed(4)} ${mmToPt(PAGE.heightMm).toFixed(4)}] /Resources << /XObject << ${resources} >> >> /Contents ${contentId} 0 R >>\nendobj\n`);
       objects[contentId]=concatBytes([
-        textBytes(`${contentId} 0 obj\\n<< /Length ${contentBytes.length} >>\\nstream\\n`),
+        textBytes(`${contentId} 0 obj\n<< /Length ${contentBytes.length} >>\nstream\n`),
         contentBytes,
-        textBytes('endstream\\nendobj\\n')
+        textBytes('endstream\nendobj\n')
       ]);
     }
 
-    objects[1]=textBytes('1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n');
-    objects[2]=textBytes(`2 0 obj\\n<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>\\nendobj\\n`);
-    const chunks=[textBytes('%PDF-1.4\\n%Gerador-de-Artes\\n')];
+    objects[1]=textBytes('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+    objects[2]=textBytes(`2 0 obj\n<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>\nendobj\n`);
+    const chunks=[textBytes('%PDF-1.4\n%Gerador-de-Artes\n')];
     const offsets=[0];
     let position=chunks[0].length;
     for(let id=1;id<nextId;id++){
@@ -342,9 +342,9 @@
       position+=objects[id].length;
     }
     const xrefOffset=position;
-    let xref=`xref\\n0 ${nextId}\\n0000000000 65535 f \\n`;
-    for(let id=1;id<nextId;id++) xref+=String(offsets[id]).padStart(10,'0')+' 00000 n \\n';
-    xref+=`trailer\\n<< /Size ${nextId} /Root 1 0 R >>\\nstartxref\\n${xrefOffset}\\n%%EOF\\n`;
+    let xref=`xref\n0 ${nextId}\n0000000000 65535 f \n`;
+    for(let id=1;id<nextId;id++) xref+=String(offsets[id]).padStart(10,'0')+' 00000 n \n';
+    xref+=`trailer\n<< /Size ${nextId} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
     chunks.push(textBytes(xref));
     return new Blob(chunks,{type:'application/pdf'});
   }
