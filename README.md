@@ -9,7 +9,9 @@ Aplicação web para criar etiquetas de preço nos modelos **Geladeira** e **Pad
 3. Informe o nome e o preço.
 4. Ajuste cor, orientação, tamanhos e opções disponíveis para o modelo.
 5. No modelo Padrão, escolha entre foto, selo Promoção ou espaço vazio.
-6. Informe a largura final da etiqueta em milímetros; a altura é calculada automaticamente para preservar a proporção do modelo.\n7. Use **Baixar PDF A4 (300 DPI)** para gerar uma etiqueta individual centralizada na folha.\n8. Na impressão, selecione **Tamanho real / 100%** e desative opções como “Ajustar à página”.
+6. Informe a largura final da etiqueta em milímetros; a altura é calculada automaticamente para preservar a proporção do modelo.
+7. Use **Baixar PDF A4 (300 DPI)** para gerar uma etiqueta individual centralizada na folha.
+8. Na impressão, selecione **Tamanho real / 100%** e desative opções como “Ajustar à página”.
 
 ## Estrutura
 
@@ -20,7 +22,8 @@ Aplicação web para criar etiquetas de preço nos modelos **Geladeira** e **Pad
 │   └── styles.css
 ├── js/
 │   ├── app.js       # controles, estado, validação, upload e exportação
-│   ├── engine.js    # desenho das etiquetas no Canvas\n│   ├── pdf-export.js # PDF A4, sangria e marcas de corte
+│   ├── engine.js    # desenho das etiquetas no Canvas
+│   ├── pdf-export.js # PDF A4, sangria e marcas de corte
 │   ├── export.js    # implementação antiga, não carregada pela página atual
 │   ├── render.js    # implementação antiga, não carregada pela página atual
 │   └── templates.js # implementação antiga, não carregada pela página atual
@@ -38,7 +41,10 @@ A página atual carrega `js/engine.js`, `js/pdf-export.js` e `js/app.js`. Os arq
 - Fontes e logotipo locais em `assets/`.
 - Não há servidor, login, banco de dados ou API.
 - As informações preenchidas e a foto ficam somente na memória da página. Ao atualizar ou fechar a página, a etiqueta atual não é preservada.
-- A exportação PNG continua disponível e é gerada diretamente do Canvas.\n- O PDF individual usa renderização própria em 300 DPI, papel A4 (210 × 297 mm), sangria de 2 mm por lado e marcas de corte vetoriais fora da sangria.\n- A altura da etiqueta é calculada pela proporção real do modelo ativo; a arte não é deformada.\n- A sangria prolonga os pixels das bordas da arte, em vez de acrescentar uma moldura branca.
+- A exportação PNG continua disponível e é gerada diretamente do Canvas.
+- O PDF individual usa renderização própria em 300 DPI, papel A4 (210 × 297 mm), sangria de 2 mm por lado e marcas de corte vetoriais fora da sangria.
+- A altura da etiqueta é calculada pela proporção real do modelo ativo; a arte não é deformada.
+- A sangria prolonga os pixels das bordas da arte, em vez de acrescentar uma moldura branca.
 
 ## Proteções implementadas
 
@@ -58,7 +64,10 @@ Verificações manuais recomendadas antes de publicar:
 - Abrir os dois modelos e alternar entre retrato e paisagem.
 - Testar preços inteiros, centavos vazios, centavos 00 e 99, valores negativos e decimais.
 - Testar foto válida, arquivo que não seja imagem, imagem acima de 8 MB e remoção da foto.
-- Baixar PNG nos dois modelos e confirmar nome, preço, logotipo, fontes e orientação.\n- Gerar PDF nos modelos Geladeira (retrato e paisagem) e Padrão.\n- Conferir página A4, dimensão física da etiqueta, sangria de 2 mm e marcas de corte.\n- Imprimir uma página de teste em escala 100%, sem “Ajustar à página”.
+- Baixar PNG nos dois modelos e confirmar nome, preço, logotipo, fontes e orientação.
+- Gerar PDF nos modelos Geladeira (retrato e paisagem) e Padrão.
+- Conferir página A4, dimensão física da etiqueta, sangria de 2 mm e marcas de corte.
+- Imprimir uma página de teste em escala 100%, sem “Ajustar à página”.
 - Repetir os testes em celular e computador.
 
 ## Próximas evoluções possíveis
