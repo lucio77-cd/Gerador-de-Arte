@@ -135,7 +135,16 @@
       </div>
 
       <button type="button" id="btnBaixar" class="btn-primary">Baixar arte (PNG)</button>
-      <button type="button" id="btnBaixarPdf" class="btn-primary">Baixar PDF A4 (300 DPI)</button>
+      <button type="button" id="btnBaixarPdf" class="btn-primary">Baixar PDF A4 individual (300 DPI)</button>
+
+      <section class="print-queue" aria-labelledby="tituloFilaArtes">
+        <h2 id="tituloFilaArtes">Montar folha A4 com várias artes</h2>
+        <p class="print-size-hint">Crie uma etiqueta, adicione à folha e repita com outros produtos. Você pode definir quantas cópias deseja.</p>
+        <button type="button" id="btnAdicionarFolha" class="btn-secondary">Adicionar arte à folha</button>
+        <div id="listaArtesFolha" class="print-queue-list" aria-live="polite"></div>
+        <button type="button" id="btnBaixarFolha" class="btn-primary" disabled>Baixar PDF com todas as artes</button>
+        <p class="print-size-hint">Se não couber em uma página, o sistema cria outras folhas A4 automaticamente. Imprima em tamanho real (100%).</p>
+      </section>
       <button type="button" id="btnAjustarTela" class="btn-secondary">Ajustar à tela</button>
       <p id="appStatus" class="app-status" role="status" aria-live="polite">Preparando a pré-visualização...</p>
 
