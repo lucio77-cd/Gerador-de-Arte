@@ -215,12 +215,21 @@ function updateAvatarPreview(){
 }
 
 uploadAvatarPreviewEl.addEventListener('click', () => imagemInputEl.click());
+uploadAvatarPreviewEl.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    imagemInputEl.click();
+  }
+});
 
 // Reduz a imagem antes de guardá-la no estado. O limite evita que uma
 // foto original muito grande consuma memória excessiva no celular.
 async function resizeImageToImg(file, maxDim = 1000, quality = 0.85){
-  if(!file || !file.type || !file.type.startsWith('image/')){
-    throw new Error('Selecione um arquivo de imagem válido.');
+  // Aceita formatos raster comuns. SVG é excluído para evitar recursos externos
+  // embutidos que podem impedir a exportação segura do Canvas.
+  const formatosPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if(!file || !formatosPermitidos.includes(file.type)){
+    throw new Error('Use uma imagem JPG, PNG, WEBP ou GIF.');
   }
   if(file.size > MAX_IMAGE_SIZE){
     throw new Error('A imagem deve ter no máximo 8 MB.');
