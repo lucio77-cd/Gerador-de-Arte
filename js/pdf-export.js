@@ -350,7 +350,8 @@
   }
 
   window.PDFPrint = Object.freeze({
-    gerarPDF,\n    gerarPDFMultiplo,
+    gerarPDF,
+    gerarPDFMultiplo,
     dpi: DPI,
     sangriaMm: BLEED_MM,
   });
