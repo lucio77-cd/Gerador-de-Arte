@@ -24,15 +24,16 @@
 
   <div class="workspace">
 
-    <!-- Controle global: permite incluir ou retirar a marca da arte sem alterar o layout. -->
-    <div class="field logo-toggle">
-      <label class="checkbox-label" for="mostrarLogo">
-        <input type="checkbox" id="mostrarLogo" checked>
-        Mostrar logo na arte
-      </label>
-    </div>
 
     <form id="form" class="panel-form" onsubmit="return false;">
+
+      <!-- Controle global do logo, dentro do painel para respeitar o layout em colunas. -->
+      <div class="field logo-toggle">
+        <label class="checkbox-label" for="mostrarLogo">
+          <input type="checkbox" id="mostrarLogo" checked>
+          Mostrar logo na arte
+        </label>
+      </div>
 
       <div class="field">
         <label for="nomeProduto">Nome do produto</label>
