@@ -52,7 +52,7 @@ function obterDimensoesModelo(){
 
 function lerLarguraImpressaoMm(){
   const valor = document.getElementById('larguraImpressao').value.trim();
-  if(!/^\\d+(?:[.,]\\d{0,4})?$/.test(valor)) return null;
+  if(!/^\d+(?:[.,]\d{0,4})?$/.test(valor)) return null;
   const larguraCm = Number(valor.replace(',', '.'));
   if(!Number.isFinite(larguraCm) || larguraCm < 2 || larguraCm > 18) return null;
   return larguraCm * 10;
