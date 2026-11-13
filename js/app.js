@@ -21,6 +21,7 @@ const state = {
   cor: 'amarelo',
   orientacao: 'portrait',
   mostrarOferta: true,
+  mostrarLogo: true, // mantém o comportamento atual: logo visível por padrão
   infoExtra: '',
   imagemImg: null,
   estadoImagem: 'nenhum', // 'foto' | 'promocao' | 'nenhum'
@@ -142,6 +143,11 @@ fieldBindings.forEach(([id, key]) => {
     state[key] = el.value;
     renderPreview();
   });
+});
+
+document.getElementById('mostrarLogo').addEventListener('change', (e) => {
+  state.mostrarLogo = e.target.checked;
+  renderPreview();
 });
 
 document.getElementById('mostrarOferta').addEventListener('change', (e) => {
