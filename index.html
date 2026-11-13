@@ -72,6 +72,13 @@
         <input type="range" id="escalaPreco" min="60" max="150" step="5" value="100">
       </div>
 
+      <div class="field print-size-field">
+        <label for="larguraImpressao">Largura final da etiqueta (mm)</label>
+        <input type="number" id="larguraImpressao" min="20" max="180" step="1" value="100" inputmode="decimal">
+        <p class="print-size-hint">Altura proporcional: <strong id="alturaImpressao">—</strong></p>
+        <p class="print-size-hint">PDF individual em A4 · sangria de 2 mm por lado · corte manual</p>
+      </div>
+
       <div class="field">
         <label>Cor de destaque</label>
         <div class="color-swatches" id="corDestaque" role="group" aria-label="Cores disponíveis"></div>
@@ -128,6 +135,7 @@
       </div>
 
       <button type="button" id="btnBaixar" class="btn-primary">Baixar arte (PNG)</button>
+      <button type="button" id="btnBaixarPdf" class="btn-primary">Baixar PDF A4 (300 DPI)</button>
       <button type="button" id="btnAjustarTela" class="btn-secondary">Ajustar à tela</button>
       <p id="appStatus" class="app-status" role="status" aria-live="polite">Preparando a pré-visualização...</p>
 
@@ -146,6 +154,7 @@
 </div>
 
 <script src="js/engine.js"></script>
+<script src="js/pdf-export.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
