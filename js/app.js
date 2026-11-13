@@ -534,6 +534,132 @@ btnBaixarPdfEl.addEventListener('click', async () => {
 });
 
 // ==========================================================
+
+/* ==========================================================
+   FILA DE ARTES — MONTAGEM AUTOMÁTICA EM FOLHAS A4
+========================================================== */
+const filaArtes = [];
+const listaArtesFolhaEl = document.getElementById('listaArtesFolha');
+const btnAdicionarFolhaEl = document.getElementById('btnAdicionarFolha');
+const btnBaixarFolhaEl = document.getElementById('btnBaixarFolha');
+
+function atualizarListaArtesFolha(){
+  listaArtesFolhaEl.replaceChildren();
+  if(!filaArtes.length){
+    const vazio=document.createElement('p');
+    vazio.className='print-size-hint';
+    vazio.textContent='Nenhuma arte adicionada. Crie uma etiqueta e toque em “Adicionar à folha”.';
+    listaArtesFolhaEl.appendChild(vazio);
+    btnBaixarFolhaEl.disabled=true;
+    return;
+  }
+  btnBaixarFolhaEl.disabled=false;
+  filaArtes.forEach((item,index)=>{
+    const linha=document.createElement('div');
+    linha.className='print-queue-item';
+    const descricao=document.createElement('div');
+    descricao.className='print-queue-description';
+    const nome=document.createElement('strong');
+    nome.textContent=item.nome;
+    const medida=document.createElement('small');
+    medida.textContent=`${(item.larguraMm/10).toLocaleString('pt-BR',{maximumFractionDigits:4})} × ${(item.alturaMm/10).toLocaleString('pt-BR',{maximumFractionDigits:4})} cm`;
+    descricao.append(nome,medida);
+    const quantidade=document.createElement('label');
+    quantidade.className='print-queue-quantity';
+    quantidade.textContent='Cópias';
+    const campo=document.createElement('input');
+    campo.type='number'; campo.min='1'; campo.max='500'; campo.step='1';
+    campo.value=String(item.quantidade); campo.dataset.queueQuantity=String(index);
+    quantidade.appendChild(campo);
+    const remover=document.createElement('button');
+    remover.type='button'; remover.className='btn-link';
+    remover.textContent='Remover'; remover.dataset.queueRemove=String(index);
+    linha.append(descricao,quantidade,remover);
+    listaArtesFolhaEl.appendChild(linha);
+  });
+}
+
+btnAdicionarFolhaEl.addEventListener('click',async()=>{
+  const validacao=validarPreco();
+  if(!validacao.valido){
+    setStatus(validacao.mensagem,'error'); alert(validacao.mensagem); validacao.campo.focus(); return;
+  }
+  const larguraMm=lerLarguraImpressaoMm();
+  if(larguraMm===null){
+    const mensagem='Informe uma largura entre 2 e 18 cm, usando no máximo 4 casas decimais.';
+    setStatus(mensagem,'error'); alert(mensagem); document.getElementById('larguraImpressao').focus(); return;
+  }
+  const dimensoes=obterDimensoesModelo();
+  const alturaMm=larguraMm*dimensoes.h/dimensoes.w;
+  const textoOriginal=btnAdicionarFolhaEl.textContent;
+  btnAdicionarFolhaEl.disabled=true; btnAdicionarFolhaEl.textContent='Adicionando...';
+  try{
+    await assetsReady();
+    const escala=Math.round(larguraMm/25.4*PDFPrint.dpi)/dimensoes.w;
+    const arteCanvas=document.createElement('canvas');
+    if(state.model==='geladeira') await renderGeladeira(arteCanvas,state,escala);
+    else await renderPadrao(arteCanvas,state,escala);
+    filaArtes.push({
+      canvas:arteCanvas,
+      nome:(state.nome||`Arte ${filaArtes.length+1}`).trim(),
+      larguraMm, alturaMm, quantidade:1
+    });
+    atualizarListaArtesFolha();
+    setStatus(`Arte adicionada à folha. Total: ${filaArtes.length} modelo(s).`,'success');
+  }catch(err){
+    console.error('Falha ao adicionar arte à folha:',err);
+    setStatus(err.message||'Não foi possível adicionar esta arte à folha.','error');
+    alert(err.message||'Não foi possível adicionar esta arte à folha.');
+  }finally{
+    btnAdicionarFolhaEl.disabled=false; btnAdicionarFolhaEl.textContent=textoOriginal;
+  }
+});
+
+listaArtesFolhaEl.addEventListener('change',(event)=>{
+  const campo=event.target.closest('[data-queue-quantity]');
+  if(!campo) return;
+  const index=Number(campo.dataset.queueQuantity);
+  const quantidade=Number(campo.value);
+  if(!Number.isInteger(quantidade)||quantidade<1||quantidade>500){
+    alert('Informe uma quantidade inteira entre 1 e 500.');
+    campo.value=String(filaArtes[index].quantidade); return;
+  }
+  filaArtes[index].quantidade=quantidade;
+  setStatus('Quantidade de cópias atualizada.');
+});
+
+listaArtesFolhaEl.addEventListener('click',(event)=>{
+  const botao=event.target.closest('[data-queue-remove]');
+  if(!botao) return;
+  filaArtes.splice(Number(botao.dataset.queueRemove),1);
+  atualizarListaArtesFolha();
+  setStatus('Arte removida da fila.');
+});
+
+btnBaixarFolhaEl.addEventListener('click',async()=>{
+  if(!filaArtes.length) return;
+  const textoOriginal=btnBaixarFolhaEl.textContent;
+  btnBaixarFolhaEl.disabled=true; btnBaixarFolhaEl.textContent='Montando PDF...';
+  setStatus('Organizando as artes nas folhas A4...');
+  try{
+    const blob=await PDFPrint.gerarPDFMultiplo(filaArtes);
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.download='etiquetas-varias-artes-A4.pdf'; link.href=url;
+    document.body.appendChild(link); link.click(); link.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),2500);
+    setStatus('PDF com várias artes gerado. As páginas extras foram criadas automaticamente; imprima em tamanho real (100%).','success');
+  }catch(err){
+    console.error('Falha ao montar PDF com várias artes:',err);
+    const mensagem=err.message||'Não foi possível montar o PDF. Tente novamente.';
+    setStatus(mensagem,'error'); alert(mensagem);
+  }finally{
+    btnBaixarFolhaEl.disabled=false; btnBaixarFolhaEl.textContent=textoOriginal;
+  }
+});
+
+atualizarListaArtesFolha();
+
 // INICIALIZAÇÃO
 // ==========================================================
 atualizarAlturaImpressao();
