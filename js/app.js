@@ -599,8 +599,14 @@ btnAdicionarFolhaEl.addEventListener('click',async()=>{
     const arteCanvas=document.createElement('canvas');
     if(state.model==='geladeira') await renderGeladeira(arteCanvas,state,escala);
     else await renderPadrao(arteCanvas,state,escala);
+    const imagemBlob=await new Promise((resolve,reject)=>{
+      arteCanvas.toBlob(blob=>{
+        if(blob) resolve(blob);
+        else reject(new Error('Não foi possível guardar a arte na fila.'));
+      },'image/png');
+    });
     filaArtes.push({
-      canvas:arteCanvas,
+      blob:imagemBlob,
       nome:(state.nome||`Arte ${filaArtes.length+1}`).trim(),
       larguraMm, alturaMm, quantidade:1
     });
