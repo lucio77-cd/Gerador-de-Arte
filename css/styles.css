@@ -42,23 +42,19 @@
 ========================================================== */
 :root{
   --vermelho: #E31E24;
-  --amarelo:  #FFC400;
-  --verde:    #2E7D32;
-  --azul:     #1565C0;
-  --laranja:  #F57C00;
-  --roxo:     #7B1FA2;
-  --preto:    #000000;
-  --branco:   #FFFFFF;
+  --amarelo: #FFC400;
+  --verde: #2E7D32;
+  --azul: #1565C0;
+  --laranja: #F57C00;
+  --roxo: #7B1FA2;
+  --preto: #000000;
+  --branco: #FFFFFF;
   --cinza-borda: #d8d8d8;
   --cinza-fundo: #f4f4f5;
-
   --font-title: 'Anton', sans-serif;
   --font-body: 'Montserrat', sans-serif;
 }
 
-/* ==========================================================
-   APP SHELL
-========================================================== */
 *{ box-sizing: border-box; }
 
 body{
@@ -68,28 +64,25 @@ body{
   color: #1a1a1a;
 }
 
+button, input, select{ font: inherit; }
+
+button:focus-visible, input:focus-visible, select:focus-visible,
+.upload-avatar-preview:focus-visible{
+  outline: 3px solid #1565C0;
+  outline-offset: 3px;
+}
+
 .app{
   max-width: 1200px;
   margin: 0 auto;
   padding: 16px;
 }
 
-.app-header h1{
-  font-size: 22px;
-  margin: 0 0 2px;
-}
-.app-header p{
-  margin: 0 0 16px;
-  color: #666;
-  font-size: 14px;
-}
+.app-header h1{ font-size: 22px; margin: 0 0 2px; }
+.app-header p{ margin: 0 0 16px; color: #666; font-size: 14px; }
 
-/* Tabs */
-.tabs{
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
+/* Abas dos dois modelos */
+.tabs{ display: flex; gap: 8px; margin-bottom: 16px; }
 .tab{
   flex: 1;
   padding: 12px;
@@ -100,27 +93,17 @@ body{
   font-size: 14px;
   cursor: pointer;
 }
-.tab.active{
-  background: var(--preto);
-  color: var(--branco);
-}
+.tab.active{ background: var(--preto); color: var(--branco); }
 
-/* Workspace */
-.workspace{
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+/* Área de trabalho: formulário e prévia */
+.workspace{ display: flex; flex-direction: column; gap: 20px; }
 @media(min-width: 900px){
-  .workspace{
-    flex-direction: row;
-    align-items: flex-start;
-  }
+  .workspace{ flex-direction: row; align-items: flex-start; }
   .panel-form{ width: 340px; flex-shrink: 0; }
-  .panel-preview{ flex: 1; }
+  .panel-preview{ flex: 1; min-width: 0; }
 }
 
-/* Form */
+/* Campos */
 .panel-form{
   background: var(--branco);
   border-radius: 12px;
@@ -132,11 +115,9 @@ body{
 }
 .field{ display: flex; flex-direction: column; gap: 4px; }
 .field-row{ display: flex; gap: 10px; }
-.field-row .field{ flex: 1; }
+.field-row .field{ flex: 1; min-width: 0; }
 .field label{ font-size: 13px; font-weight: 600; }
-.field input[type="text"],
-.field input[type="number"],
-.field select,
+.field input[type="text"], .field input[type="number"], .field select,
 .field input[type="file"]{
   padding: 10px;
   border: 1px solid var(--cinza-borda);
@@ -144,35 +125,15 @@ body{
   font-size: 15px;
   font-family: var(--font-body);
   width: 100%;
+  min-width: 0;
 }
-.checkbox-label{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 14px;
-}
+.checkbox-label{ display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
 .checkbox-label input{ width: 18px; height: 18px; }
 
-/* Sliders de escala (nome / imagem do produto) */
-.field label{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.field-value{
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--vermelho);
-  font-variant-numeric: tabular-nums;
-}
-.field input[type="range"]{
-  width: 100%;
-  height: 4px;
-  accent-color: var(--preto);
-  cursor: pointer;
-}
+/* Sliders de escala */
+.field label{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.field-value{ font-size: 12px; font-weight: 700; color: var(--vermelho); font-variant-numeric: tabular-nums; }
+.field input[type="range"]{ width: 100%; height: 4px; accent-color: var(--preto); cursor: pointer; }
 
 .btn-primary, .btn-secondary, .btn-link{
   border: none;
@@ -185,6 +146,9 @@ body{
 }
 .btn-primary{ background: var(--preto); color: var(--branco); }
 .btn-secondary{ background: var(--cinza-fundo); border: 1px solid var(--cinza-borda); }
+.btn-primary:disabled, .btn-secondary:disabled{ opacity: .6; cursor: wait; }
+.btn-primary:hover:not(:disabled){ background: #292929; }
+.btn-secondary:hover:not(:disabled){ background: #e9e9eb; }
 .btn-link{
   background: none;
   color: var(--vermelho);
@@ -194,12 +158,19 @@ body{
   align-self: flex-start;
 }
 
-/* Swatches de cor (círculos + nome) */
-.color-swatches{
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+/* Mensagem de estado: informa carregamento, sucesso ou erro */
+.app-status{
+  min-height: 18px;
+  margin: 0;
+  color: #555;
+  font-size: 12px;
+  line-height: 1.45;
 }
+.app-status[data-status="success"]{ color: #216e39; }
+.app-status[data-status="error"]{ color: #b42318; }
+
+/* Seleção de cores */
+.color-swatches{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .swatch{
   border: none;
   background: none;
@@ -210,39 +181,25 @@ body{
   gap: 4px;
   cursor: pointer;
   font-family: var(--font-body);
+  min-width: 0;
 }
 .swatch-circle{
   width: 34px;
   height: 34px;
+  max-width: 100%;
   border-radius: 50%;
   border: 3px solid transparent;
   box-shadow: 0 0 0 1px var(--cinza-borda) inset;
 }
-.swatch.selected .swatch-circle{
-  border-color: var(--preto);
-  box-shadow: 0 0 0 2px var(--branco) inset;
-}
-.swatch-label{
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #555;
-  text-align: center;
-  line-height: 1.1;
-}
+.swatch.selected .swatch-circle{ border-color: var(--preto); box-shadow: 0 0 0 2px var(--branco) inset; }
+.swatch-label{ font-size: 9px; font-weight: 700; text-transform: uppercase; color: #555; text-align: center; line-height: 1.1; }
 .swatch.selected .swatch-label{ color: var(--preto); }
 
-/* Seletor segmentado (Espaço da imagem: Foto / Selo "Promoção" / Nenhum)
-   — reaproveita a linguagem visual das .tabs, só que compacto e com
-   3 opções lado a lado dentro do formulário. */
-.segmented{
-  display: flex;
-  border: 2px solid var(--preto);
-  border-radius: 10px;
-  overflow: hidden;
-}
+/* Seletor Foto / Selo / Nenhum */
+.segmented{ display: flex; border: 2px solid var(--preto); border-radius: 10px; overflow: hidden; }
 .segmented-btn{
   flex: 1;
+  min-width: 0;
   padding: 9px 6px;
   border: none;
   border-right: 2px solid var(--preto);
@@ -255,17 +212,10 @@ body{
   color: #1a1a1a;
 }
 .segmented-btn:last-child{ border-right: none; }
-.segmented-btn.active{
-  background: var(--preto);
-  color: var(--branco);
-}
+.segmented-btn.active{ background: var(--preto); color: var(--branco); }
 
-/* Avatar de upload (miniatura quadrada, toca pra trocar) */
-.upload-avatar{
-  position: relative;
-  width: 72px;
-  height: 72px;
-}
+/* Miniatura do upload */
+.upload-avatar{ position: relative; width: 72px; height: 72px; }
 .upload-avatar-preview{
   width: 100%;
   height: 100%;
@@ -279,15 +229,8 @@ body{
   cursor: pointer;
   font-size: 24px;
 }
-.upload-avatar-preview img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.upload-avatar.has-image .upload-avatar-preview{
-  border-style: solid;
-  border-color: var(--cinza-borda);
-}
+.upload-avatar-preview img{ width: 100%; height: 100%; object-fit: cover; }
+.upload-avatar.has-image .upload-avatar-preview{ border-style: solid; border-color: var(--cinza-borda); }
 .upload-avatar-remove{
   display: none;
   position: absolute;
@@ -307,44 +250,43 @@ body{
   justify-content: center;
 }
 .upload-avatar.has-image .upload-avatar-remove{ display: flex; }
-.upload-hint{
-  display: block;
-  font-size: 11px;
-  color: #888;
-  margin-top: 4px;
-}
+.upload-hint{ display: block; font-size: 11px; color: #777; margin-top: 4px; }
 .visually-hidden{
   position: absolute;
-  width: 1px; height: 1px;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
   clip: rect(0,0,0,0);
   white-space: nowrap;
 }
 
+/* Os campos específicos aparecem conforme o modelo ativo */
 .only-padrao, .only-geladeira{ display: none; }
 body.model-padrao .only-padrao{ display: flex; }
 body.model-geladeira .only-geladeira{ display: flex; }
 
-/* Preview area */
+/* Pré-visualização */
 .panel-preview{
   background: var(--branco);
   border-radius: 12px;
   border: 1px solid var(--cinza-borda);
   padding: 16px;
+  min-width: 0;
 }
-.preview-scroll{
-  overflow: auto;
-  max-width: 100%;
-}
-.preview-scale{
-  transform-origin: top left;
-  width: max-content;
+.preview-scroll{ overflow: auto; max-width: 100%; }
+.preview-scale{ transform-origin: top left; width: max-content; }
+#artCanvas{ display: block; max-width: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+@media(max-width: 420px){
+  .app{ padding: 10px; }
+  .panel-form, .panel-preview{ padding: 12px; }
+  .color-swatches{ gap: 3px; }
+  .swatch-label{ font-size: 8px; }
+  .segmented-btn{ font-size: 10px; padding-inline: 3px; }
 }
 
-
-/* Canvas — o próprio elemento que é desenhado pelo engine.js e depois
-   exportado direto (sem nenhuma etapa de "printar" o DOM) */
-#artCanvas{
-  display: block;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-}
+/* MELHORIAS FUTURAS:
+   - Preferências de impressão e exportação em PDF.
+   - Histórico local de etiquetas recentes, com opção explícita de limpar.
+   - Testes visuais automatizados em diferentes larguras de tela.
+*/

@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f4f4f5">
+<meta name="description" content="Crie e baixe etiquetas de preço da Padaria da Cris em PNG.">
 <title>Gerador de Artes — Padaria da Cris</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -15,9 +17,9 @@
     <p>Padaria da Cris — etiquetas de preço</p>
   </header>
 
-  <div class="tabs" id="tabs">
-    <button type="button" class="tab active" data-model="geladeira">Geladeira</button>
-    <button type="button" class="tab" data-model="padrao">Padrão</button>
+  <div class="tabs" id="tabs" role="group" aria-label="Modelo da etiqueta">
+    <button type="button" class="tab active" data-model="geladeira" aria-pressed="true">Geladeira</button>
+    <button type="button" class="tab" data-model="padrao" aria-pressed="false">Padrão</button>
   </div>
 
   <div class="workspace">
@@ -26,7 +28,7 @@
 
       <div class="field">
         <label for="nomeProduto">Nome do produto</label>
-        <input type="text" id="nomeProduto" placeholder="Ex: Pão Francês" maxlength="40">
+        <input type="text" id="nomeProduto" placeholder="Ex: Pão Francês" maxlength="40" autocomplete="off">
       </div>
 
       <div class="field">
@@ -39,17 +41,17 @@
 
       <div class="field only-padrao">
         <label for="categoria">Categoria (tag pequena)</label>
-        <input type="text" id="categoria" placeholder="Ex: PADARIA" maxlength="20">
+        <input type="text" id="categoria" placeholder="Ex: PADARIA" maxlength="20" autocomplete="off">
       </div>
 
       <div class="field-row">
         <div class="field">
           <label for="precoInteiro">Preço (inteiro)</label>
-          <input type="number" id="precoInteiro" placeholder="8" min="0">
+          <input type="number" id="precoInteiro" placeholder="8" min="0" step="1" inputmode="numeric">
         </div>
         <div class="field">
           <label for="precoCentavos">Centavos</label>
-          <input type="number" id="precoCentavos" placeholder="99" min="0" max="99">
+          <input type="number" id="precoCentavos" placeholder="99" min="0" max="99" step="1" inputmode="numeric">
         </div>
       </div>
 
@@ -63,7 +65,7 @@
 
       <div class="field">
         <label>Cor de destaque</label>
-        <div class="color-swatches" id="corDestaque"></div>
+        <div class="color-swatches" id="corDestaque" role="group" aria-label="Cores disponíveis"></div>
       </div>
 
       <div class="field only-geladeira">
@@ -83,36 +85,29 @@
 
       <div class="field only-padrao">
         <label for="infoExtra">Informação extra (peso/litragem)</label>
-        <input type="text" id="infoExtra" placeholder="Ex: 500g" maxlength="30">
+        <input type="text" id="infoExtra" placeholder="Ex: 500g" maxlength="30" autocomplete="off">
       </div>
 
-      <!--
-        Espaço da imagem do produto — 3 estados (desafio da cliente:
-        a foto nem sempre é usada, e o espaço não pode sobrar com texto
-        de instrução na arte final):
-          - Foto: mostra a miniatura de upload abaixo
-          - Selo "Promoção": desenha um selo no lugar da foto (engine.js)
-          - Nenhum: área fica em branco, sem placeholder
-      -->
+      <!-- Espaço da imagem: foto, selo promocional ou área vazia. -->
       <div class="field only-padrao">
         <label>Espaço da imagem</label>
-        <div class="segmented" id="estadoImagemSeletor">
-          <button type="button" class="segmented-btn" data-estado="foto">Foto</button>
-          <button type="button" class="segmented-btn" data-estado="promocao">Selo "Promoção"</button>
-          <button type="button" class="segmented-btn active" data-estado="nenhum">Nenhum</button>
+        <div class="segmented" id="estadoImagemSeletor" role="group" aria-label="Conteúdo do espaço da imagem">
+          <button type="button" class="segmented-btn" data-estado="foto" aria-pressed="false">Foto</button>
+          <button type="button" class="segmented-btn" data-estado="promocao" aria-pressed="false">Selo "Promoção"</button>
+          <button type="button" class="segmented-btn active" data-estado="nenhum" aria-pressed="true">Nenhum</button>
         </div>
       </div>
 
       <div class="field only-padrao" id="uploadFotoField" style="display:none;">
         <label>Foto do produto</label>
         <div class="upload-avatar" id="uploadAvatar">
-          <div class="upload-avatar-preview" id="uploadAvatarPreview">
-            <span class="upload-icon">📷</span>
+          <div class="upload-avatar-preview" id="uploadAvatarPreview" role="button" tabindex="0" aria-label="Escolher foto do produto">
+            <span class="upload-icon" aria-hidden="true">📷</span>
           </div>
           <button type="button" class="upload-avatar-remove" id="btnRemoverImagem" title="Remover foto" aria-label="Remover foto">×</button>
         </div>
-        <span class="upload-hint">Toque na miniatura pra escolher/trocar</span>
-        <input type="file" id="imagemProduto" accept="image/*" class="visually-hidden">
+        <span class="upload-hint">Toque na miniatura para escolher ou trocar (máximo 8 MB).</span>
+        <input type="file" id="imagemProduto" accept="image/jpeg,image/png,image/webp,image/gif" class="visually-hidden">
       </div>
 
       <div class="field only-padrao">
@@ -125,13 +120,14 @@
 
       <button type="button" id="btnBaixar" class="btn-primary">Baixar arte (PNG)</button>
       <button type="button" id="btnAjustarTela" class="btn-secondary">Ajustar à tela</button>
+      <p id="appStatus" class="app-status" role="status" aria-live="polite">Preparando a pré-visualização...</p>
 
     </form>
 
     <div class="panel-preview">
       <div class="preview-scroll">
         <div class="preview-scale" id="previewScale">
-          <canvas id="artCanvas"></canvas>
+          <canvas id="artCanvas" role="img" aria-label="Pré-visualização da etiqueta de preço"></canvas>
         </div>
       </div>
     </div>
