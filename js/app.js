@@ -1,11 +1,17 @@
 // ==========================================================
-// ESTADO
+// ESTADO DA APLICAÇÃO
 // ==========================================================
-// CHANGELOG (revisão de design — selo Promoção):
-// - Novo campo `estadoImagem`: 'foto' | 'promocao' | 'nenhum'.
-//   Substitui a checagem implícita em `imagemImg` truthy/falsy que
-//   existia antes — agora o motor (engine.js) decide o que desenhar
-//   olhando esse campo, não a presença de um arquivo.
+// HISTÓRICO DE MELHORIAS:
+// - Renderização agrupada por requestAnimationFrame: evita redesenhar o
+//   Canvas várias vezes no mesmo ciclo quando o usuário digita ou arrasta.
+// - Controle de versão da renderização: impede uma renderização antiga de
+//   sobrescrever uma alteração mais recente.
+// - Upload validado e limitado a 8 MB antes de decodificar a imagem.
+// - Exportação validada e com liberação segura da URL temporária.
+// OBJETIVO: tornar o uso mais previsível em celulares e evitar arquivos
+// inválidos, travamentos por imagens enormes e PNGs com dados incorretos.
+// FUTURO: adicionar testes automatizados de renderização em navegador.
+
 const state = {
   model: 'geladeira',
   nome: '',
@@ -16,32 +22,68 @@ const state = {
   orientacao: 'portrait',
   mostrarOferta: true,
   infoExtra: '',
-  imagemImg: null,     // objeto Image() já decodificado — não mais dataURL cru
-  estadoImagem: 'nenhum', // 'foto' | 'promocao' | 'nenhum' — controla o espaço da imagem no modelo Padrão
-  escalaNome: 1,    // multiplicador manual sobre o auto-ajuste do nome (1 = 100%)
-  escalaImagem: 1,  // multiplicador manual sobre o tamanho da imagem/selo do produto (Padrão)
-  escalaPreco: 1,   // multiplicador manual sobre o alvo de tamanho do preço
+  imagemImg: null,
+  estadoImagem: 'nenhum', // 'foto' | 'promocao' | 'nenhum'
+  escalaNome: 1,
+  escalaImagem: 1,
+  escalaPreco: 1,
 };
 
 const canvas = document.getElementById('artCanvas');
+const statusEl = document.getElementById('appStatus');
+const precoInteiroEl = document.getElementById('precoInteiro');
+const precoCentavosEl = document.getElementById('precoCentavos');
+const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
+let renderVersion = 0;
+let renderFrame = 0;
 
-async function renderPreview(){
-  if(state.model === 'geladeira'){
-    await renderGeladeira(canvas, state);
-  } else {
-    await renderPadrao(canvas, state);
-  }
-  fitPreviewToScreen();
+function setStatus(message, type = 'info'){
+  if(!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.dataset.status = type;
+}
+
+function renderPreview(){
+  const currentVersion = ++renderVersion;
+  if(renderFrame) cancelAnimationFrame(renderFrame);
+
+  // Agrupa eventos rápidos em um único desenho e descarta pedidos antigos.
+  renderFrame = requestAnimationFrame(async () => {
+    renderFrame = 0;
+    try{
+      await assetsReady();
+      if(currentVersion !== renderVersion) return;
+
+      if(state.model === 'geladeira'){
+        await renderGeladeira(canvas, state);
+      } else {
+        await renderPadrao(canvas, state);
+      }
+
+      if(currentVersion === renderVersion){
+        fitPreviewToScreen();
+        setStatus('Pré-visualização atualizada.');
+      }
+    }catch(err){
+      console.error('Erro ao atualizar a pré-visualização:', err);
+      setStatus('Não foi possível atualizar a arte. Recarregue a página e tente novamente.', 'error');
+    }
+  });
 }
 
 // ==========================================================
-// TABS (troca de modelo)
+// ABAS DE MODELO
 // ==========================================================
 document.getElementById('tabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
   if(!btn) return;
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    const active = tab === btn;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-pressed', String(active));
+  });
+
   state.model = btn.dataset.model;
   document.body.classList.remove('model-geladeira', 'model-padrao');
   document.body.classList.add(`model-${state.model}`);
@@ -50,7 +92,7 @@ document.getElementById('tabs').addEventListener('click', (e) => {
 document.body.classList.add('model-geladeira');
 
 // ==========================================================
-// SWATCHES DE COR
+// CORES
 // ==========================================================
 const colorSwatchesEl = document.getElementById('corDestaque');
 
@@ -60,7 +102,8 @@ function buildColorSwatches(){
     const label = key.charAt(0).toUpperCase() + key.slice(1);
     const selected = state.cor === key ? 'selected' : '';
     return `
-      <button type="button" class="swatch ${selected}" data-cor="${key}">
+      <button type="button" class="swatch ${selected}" data-cor="${key}"
+        aria-label="Usar cor ${label}" aria-pressed="${state.cor === key}">
         <span class="swatch-circle" style="background:${hex}"></span>
         <span class="swatch-label">${label}</span>
       </button>
@@ -72,11 +115,13 @@ colorSwatchesEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.swatch');
   if(!btn) return;
   state.cor = btn.dataset.cor;
-  colorSwatchesEl.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
-  btn.classList.add('selected');
+  colorSwatchesEl.querySelectorAll('.swatch').forEach(swatch => {
+    const active = swatch === btn;
+    swatch.classList.toggle('selected', active);
+    swatch.setAttribute('aria-pressed', String(active));
+  });
   renderPreview();
 });
-
 buildColorSwatches();
 
 // ==========================================================
@@ -105,7 +150,7 @@ document.getElementById('mostrarOferta').addEventListener('change', (e) => {
 });
 
 // ==========================================================
-// SLIDERS DE ESCALA (nome do produto / imagem do produto)
+// CONTROLES DE ESCALA
 // ==========================================================
 const escalaBindings = [
   ['escalaNome', 'escalaNome', 'escalaNomeValue'],
@@ -124,16 +169,23 @@ escalaBindings.forEach(([id, key, valueId]) => {
 });
 
 // ==========================================================
-// SELETOR: ESPAÇO DA IMAGEM (Foto / Selo "Promoção" / Nenhum)
+// ESPAÇO DA IMAGEM: FOTO / SELO / NENHUM
 // ==========================================================
 const estadoImagemSeletorEl = document.getElementById('estadoImagemSeletor');
 const uploadFotoFieldEl = document.getElementById('uploadFotoField');
+const uploadAvatarEl = document.getElementById('uploadAvatar');
+const uploadAvatarPreviewEl = document.getElementById('uploadAvatarPreview');
+const imagemInputEl = document.getElementById('imagemProduto');
 
 function setEstadoImagem(novoEstado, { abrirSeletorArquivo = false } = {}){
-  state.estadoImagem = novoEstado;
+  const estadosValidos = ['foto', 'promocao', 'nenhum'];
+  if(!estadosValidos.includes(novoEstado)) return;
 
-  estadoImagemSeletorEl.querySelectorAll('.segmented-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.estado === novoEstado);
+  state.estadoImagem = novoEstado;
+  estadoImagemSeletorEl.querySelectorAll('.segmented-btn').forEach(btn => {
+    const active = btn.dataset.estado === novoEstado;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
   });
 
   uploadFotoFieldEl.style.display = novoEstado === 'foto' ? 'flex' : 'none';
@@ -141,49 +193,39 @@ function setEstadoImagem(novoEstado, { abrirSeletorArquivo = false } = {}){
   if(novoEstado === 'foto' && abrirSeletorArquivo && !state.imagemImg){
     imagemInputEl.click();
   }
-
   renderPreview();
 }
 
 estadoImagemSeletorEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.segmented-btn');
-  if(!btn) return;
-  setEstadoImagem(btn.dataset.estado, { abrirSeletorArquivo: true });
+  if(btn) setEstadoImagem(btn.dataset.estado, { abrirSeletorArquivo: true });
 });
-
-// ==========================================================
-// UPLOAD DE FOTO DO PRODUTO
-// ==========================================================
-// BUG CORRIGIDO: antes a imagem entrava no estado como uma string dataURL
-// crua e só virava um objeto <img> de verdade quando o innerHTML do
-// template era montado — se esse innerHTML fosse escrito antes da nova
-// imagem terminar de decodificar (ou corrompido por qualquer outro motivo,
-// como o bug do onerror que já corrigimos antes), o upload "sumia" mesmo
-// funcionando por dentro. Agora resizeImageToDataUrl() entrega direto um
-// objeto Image() já decodificado (await img.decode()) ANTES de qualquer
-// desenho acontecer — o app só chama renderPreview() quando a imagem já
-// está 100% pronta pra ser usada com ctx.drawImage().
-const uploadAvatarEl = document.getElementById('uploadAvatar');
-const uploadAvatarPreviewEl = document.getElementById('uploadAvatarPreview');
-const imagemInputEl = document.getElementById('imagemProduto');
 
 function updateAvatarPreview(){
   if(state.imagemImg){
     uploadAvatarEl.classList.add('has-image');
-    uploadAvatarPreviewEl.innerHTML = '';
+    uploadAvatarPreviewEl.replaceChildren();
     const thumb = state.imagemImg.cloneNode();
+    thumb.alt = 'Prévia da foto do produto';
     uploadAvatarPreviewEl.appendChild(thumb);
   } else {
     uploadAvatarEl.classList.remove('has-image');
-    uploadAvatarPreviewEl.innerHTML = `<span class="upload-icon">📷</span>`;
+    uploadAvatarPreviewEl.innerHTML = '<span class="upload-icon" aria-hidden="true">📷</span>';
   }
 }
 
 uploadAvatarPreviewEl.addEventListener('click', () => imagemInputEl.click());
 
-// Redimensiona a foto (fotos de câmera vêm enormes) e devolve um objeto
-// Image() já decodificado e pronto pra desenhar no canvas.
+// Reduz a imagem antes de guardá-la no estado. O limite evita que uma
+// foto original muito grande consuma memória excessiva no celular.
 async function resizeImageToImg(file, maxDim = 1000, quality = 0.85){
+  if(!file || !file.type || !file.type.startsWith('image/')){
+    throw new Error('Selecione um arquivo de imagem válido.');
+  }
+  if(file.size > MAX_IMAGE_SIZE){
+    throw new Error('A imagem deve ter no máximo 8 MB.');
+  }
+
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Não foi possível ler o arquivo selecionado.'));
@@ -195,37 +237,56 @@ async function resizeImageToImg(file, maxDim = 1000, quality = 0.85){
   original.src = dataUrl;
   await original.decode();
 
-  let { width, height } = original;
-  if(width > height && width > maxDim){
-    height = Math.round(height * (maxDim / width));
-    width = maxDim;
-  } else if(height >= width && height > maxDim){
-    width = Math.round(width * (maxDim / height));
-    height = maxDim;
+  if(!original.naturalWidth || !original.naturalHeight){
+    throw new Error('A imagem selecionada não possui dimensões válidas.');
   }
 
+  const ratio = Math.min(1, maxDim / Math.max(original.naturalWidth, original.naturalHeight));
+  const width = Math.max(1, Math.round(original.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(original.naturalHeight * ratio));
   const canvasTmp = document.createElement('canvas');
   canvasTmp.width = width;
   canvasTmp.height = height;
-  canvasTmp.getContext('2d').drawImage(original, 0, 0, width, height);
 
+  const context = canvasTmp.getContext('2d');
+  if(!context) throw new Error('Não foi possível preparar a imagem.');
+  context.drawImage(original, 0, 0, width, height);
+
+  const resizedBlob = await new Promise((resolve, reject) => {
+    canvasTmp.toBlob(blob => {
+      if(blob) resolve(blob);
+      else reject(new Error('Não foi possível redimensionar a imagem.'));
+    }, 'image/jpeg', quality);
+  });
+
+  const objectUrl = URL.createObjectURL(resizedBlob);
   const resized = new Image();
-  resized.src = canvasTmp.toDataURL('image/jpeg', quality);
-  await resized.decode();
-  return resized;
+  try{
+    resized.src = objectUrl;
+    await resized.decode();
+    return resized;
+  }finally{
+    // A imagem decodificada continua disponível mesmo após liberar a URL.
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 imagemInputEl.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
+  const file = e.target.files && e.target.files[0];
   if(!file) return;
+
   try{
-    state.imagemImg = await resizeImageToImg(file);
+    const novaImagem = await resizeImageToImg(file);
+    state.imagemImg = novaImagem;
     state.estadoImagem = 'foto';
+    setEstadoImagem('foto');
     updateAvatarPreview();
-    renderPreview();
+    setStatus('Foto carregada e otimizada.');
   }catch(err){
-    console.error(err);
-    alert('Não foi possível usar essa foto. Tente outra imagem.');
+    console.error('Falha no upload da imagem:', err);
+    setStatus(err.message || 'Não foi possível usar essa foto. Tente outra imagem.', 'error');
+    alert(err.message || 'Não foi possível usar essa foto. Tente outra imagem.');
+    imagemInputEl.value = '';
   }
 });
 
@@ -234,25 +295,22 @@ document.getElementById('btnRemoverImagem').addEventListener('click', (e) => {
   state.imagemImg = null;
   imagemInputEl.value = '';
   updateAvatarPreview();
-  // Ao remover a foto o espaço não volta sozinho pro selo "Promoção" —
-  // isso seria uma mudança de aparência sem ação explícita do usuário.
-  // Cai em 'nenhum' (área em branco) até o usuário escolher outra opção.
   setEstadoImagem('nenhum');
 });
 
 // ==========================================================
-// AJUSTAR À TELA (mobile) — escala visualmente o canvas pra caber
+// AJUSTE VISUAL DO PREVIEW
 // ==========================================================
-// Importante: isso é só um transform CSS de exibição. A resolução
-// interna do canvas (setupCanvas em engine.js) não muda com isso, então
-// exportar continua sempre saindo na resolução real, não na escala visual.
+// O transform é apenas visual. A resolução real do Canvas permanece
+// intacta, portanto o PNG não perde qualidade ao ajustar à tela.
 function fitPreviewToScreen(){
   const scaleWrap = document.getElementById('previewScale');
   const scrollWrap = scaleWrap.parentElement;
   scaleWrap.style.transform = 'none';
 
   const naturalWidth = canvas.offsetWidth;
-  const availableWidth = scrollWrap.clientWidth - 8;
+  const availableWidth = Math.max(0, scrollWrap.clientWidth - 8);
+  if(!naturalWidth || !availableWidth) return;
 
   if(naturalWidth > availableWidth){
     const scale = availableWidth / naturalWidth;
@@ -270,10 +328,8 @@ document.getElementById('btnAjustarTela').addEventListener('click', fitPreviewTo
 window.addEventListener('resize', fitPreviewToScreen);
 
 // ==========================================================
-// EXPORTAR PNG
+// VALIDAÇÃO E EXPORTAÇÃO PNG
 // ==========================================================
-// Não existe "capturar o DOM" — o canvas já É a imagem. Exportar é só
-// pedir pro próprio canvas serializar seus pixels como PNG.
 const btnBaixarEl = document.getElementById('btnBaixar');
 
 function nomeArquivoSeguro(nome){
@@ -285,25 +341,74 @@ function nomeArquivoSeguro(nome){
   return slug || 'produto';
 }
 
-btnBaixarEl.addEventListener('click', () => {
+function validarPreco(){
+  const inteiroTexto = precoInteiroEl.value.trim();
+  const centavosTexto = precoCentavosEl.value.trim();
+  const inteiro = inteiroTexto === '' ? 0 : Number(inteiroTexto);
+  const centavos = centavosTexto === '' ? 0 : Number(centavosTexto);
+
+  if(!Number.isSafeInteger(inteiro) || inteiro < 0){
+    return { valido: false, campo: precoInteiroEl, mensagem: 'O preço inteiro deve ser um número inteiro igual ou maior que zero.' };
+  }
+  if(!Number.isInteger(centavos) || centavos < 0 || centavos > 99){
+    return { valido: false, campo: precoCentavosEl, mensagem: 'Os centavos devem ser um número inteiro entre 00 e 99.' };
+  }
+
+  state.precoInteiro = String(inteiro);
+  state.precoCentavos = String(centavos);
+  return { valido: true };
+}
+
+function canvasToBlob(targetCanvas){
+  return new Promise((resolve, reject) => {
+    targetCanvas.toBlob(blob => {
+      if(blob) resolve(blob);
+      else reject(new Error('O navegador não conseguiu gerar o arquivo PNG.'));
+    }, 'image/png');
+  });
+}
+
+btnBaixarEl.addEventListener('click', async () => {
+  const validacao = validarPreco();
+  if(!validacao.valido){
+    setStatus(validacao.mensagem, 'error');
+    alert(validacao.mensagem);
+    validacao.campo.focus();
+    return;
+  }
+
   const textoOriginal = btnBaixarEl.textContent;
   btnBaixarEl.disabled = true;
   btnBaixarEl.textContent = 'Gerando...';
+  setStatus('Preparando o arquivo PNG...');
 
-  canvas.toBlob((blob) => {
-    btnBaixarEl.disabled = false;
-    btnBaixarEl.textContent = textoOriginal;
-    if(!blob){
-      alert('Não foi possível gerar a imagem. Tente novamente.');
-      return;
-    }
+  try{
+    // Aguarda os recursos e redesenha com os últimos valores antes de exportar.
+    await assetsReady();
+    if(state.model === 'geladeira') await renderGeladeira(canvas, state);
+    else await renderPadrao(canvas, state);
+
+    const blob = await canvasToBlob(canvas);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.download = `etiqueta-${state.model}-${nomeArquivoSeguro(state.nome)}.png`;
     link.href = url;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
-  }, 'image/png');
+    link.remove();
+
+    // Não revogar no mesmo instante do click: alguns navegadores móveis
+    // iniciam o download de forma assíncrona.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    setStatus('PNG gerado. Verifique a pasta de downloads do dispositivo.', 'success');
+  }catch(err){
+    console.error('Falha ao exportar PNG:', err);
+    setStatus('Não foi possível gerar a imagem. Tente novamente.', 'error');
+    alert('Não foi possível gerar a imagem. Tente novamente.');
+  }finally{
+    btnBaixarEl.disabled = false;
+    btnBaixarEl.textContent = textoOriginal;
+  }
 });
 
 // ==========================================================
