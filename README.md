@@ -10,7 +10,7 @@ Aplicação web para criar etiquetas de preço nos modelos **Geladeira** e **Pad
 4. Ajuste cor, orientação, tamanhos e opções disponíveis para o modelo.
 5. No modelo Padrão, escolha entre foto, selo Promoção ou espaço vazio.
 6. Informe a largura final da etiqueta em centímetros (de 2 a 18 cm); a altura é calculada automaticamente para preservar a proporção do modelo. São aceitos até 4 dígitos após a vírgula ou o ponto.
-7. Use **Baixar PDF A4 (300 DPI)** para gerar uma etiqueta individual centralizada na folha.
+7. Use **Baixar PDF A4 individual (300 DPI)** para gerar uma etiqueta centralizada na folha.\n8. Para imprimir vários produtos juntos, crie cada arte, clique em **Adicionar arte à folha**, ajuste a quantidade de cópias e use **Baixar PDF com todas as artes**. O sistema organiza as etiquetas e cria páginas A4 adicionais automaticamente quando necessário.
 8. Na impressão, selecione **Tamanho real / 100%** e desative opções como “Ajustar à página”.
 
 ## Estrutura
@@ -42,7 +42,7 @@ A página atual carrega `js/engine.js`, `js/pdf-export.js` e `js/app.js`. Os arq
 - Não há servidor, login, banco de dados ou API.
 - As informações preenchidas e a foto ficam somente na memória da página. Ao atualizar ou fechar a página, a etiqueta atual não é preservada.
 - A exportação PNG continua disponível e é gerada diretamente do Canvas.
-- O PDF individual usa renderização própria em 300 DPI, papel A4 (210 × 297 mm), sangria de 2 mm por lado e marcas de corte vetoriais fora da sangria.
+- O PDF individual e o PDF com várias artes usam renderização em 300 DPI, papel A4 (210 × 297 mm), sangria de 2 mm por lado e marcas de corte vetoriais.\n- A fila de impressão guarda cópias temporárias na memória da página; é possível definir a quantidade por arte, remover itens e gerar automaticamente quantas páginas A4 forem necessárias. A fila é perdida ao atualizar ou fechar a página.
 - A largura é informada em centímetros, aceitando até 4 casas decimais; a altura é exibida em centímetros e calculada pela proporção real do modelo ativo. O motor de PDF continua usando milímetros internamente; a arte não é deformada.
 - A sangria prolonga os pixels das bordas da arte, em vez de acrescentar uma moldura branca.
 
