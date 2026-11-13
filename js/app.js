@@ -50,17 +50,29 @@ function obterDimensoesModelo(){
   return state.orientacao === 'landscape' ? DESIGN.geladeiraLandscape : DESIGN.geladeiraPortrait;
 }
 
+function lerLarguraImpressaoMm(){
+  const valor = document.getElementById('larguraImpressao').value.trim();
+  if(!/^\\d+(?:[.,]\\d{0,4})?$/.test(valor)) return null;
+  const larguraCm = Number(valor.replace(',', '.'));
+  if(!Number.isFinite(larguraCm) || larguraCm < 2 || larguraCm > 18) return null;
+  return larguraCm * 10;
+}
+
 function atualizarAlturaImpressao(){
-  const largura = Number(document.getElementById('larguraImpressao').value);
+  const larguraMm = lerLarguraImpressaoMm();
   const alturaEl = document.getElementById('alturaImpressao');
-  if(!Number.isFinite(largura) || largura <= 0){
+  if(larguraMm === null){
     alturaEl.textContent = '—';
     return null;
   }
   const dimensoes = obterDimensoesModelo();
-  const altura = largura * dimensoes.h / dimensoes.w;
-  alturaEl.textContent = `${altura.toFixed(1)} mm`;
-  return altura;
+  const alturaMm = larguraMm * dimensoes.h / dimensoes.w;
+  const alturaCm = (alturaMm / 10).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4
+  });
+  alturaEl.textContent = `${alturaCm} cm`;
+  return alturaMm;
 }
 
 function renderPreview(){
@@ -166,8 +178,9 @@ fieldBindings.forEach(([id, key]) => {
   });
 });
 
-document.getElementById('larguraImpressao').addEventListener('input', (e) => {
-  state.larguraImpressaoMm = Number(e.target.value);
+document.getElementById('larguraImpressao').addEventListener('input', () => {
+  const larguraMm = lerLarguraImpressaoMm();
+  state.larguraImpressaoMm = larguraMm ?? 100;
   atualizarAlturaImpressao();
 });
 
@@ -466,9 +479,9 @@ btnBaixarPdfEl.addEventListener('click', async () => {
     return;
   }
 
-  const larguraMm = Number(document.getElementById('larguraImpressao').value);
-  if(!Number.isFinite(larguraMm) || larguraMm < 20 || larguraMm > 180){
-    const mensagem = 'Informe uma largura entre 20 e 180 mm para manter as margens de segurança da folha A4.';
+  const larguraMm = lerLarguraImpressaoMm();
+  if(larguraMm === null){
+    const mensagem = 'Informe uma largura entre 2 e 18 cm, usando no máximo 4 casas decimais.';
     setStatus(mensagem, 'error');
     alert(mensagem);
     document.getElementById('larguraImpressao').focus();
