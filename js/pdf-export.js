@@ -237,13 +237,24 @@
     if(!Array.isArray(itens) || !itens.length) throw new Error('Adicione pelo menos uma arte à folha.');
     const preparados = [];
     for(const item of itens){
-      if(!(item.canvas instanceof HTMLCanvasElement) || !item.canvas.width || !item.canvas.height ||
+      if(!(item.blob instanceof Blob) ||
          !Number.isFinite(item.larguraMm) || !Number.isFinite(item.alturaMm) ||
          item.larguraMm <= 0 || item.alturaMm <= 0 ||
          !Number.isInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > 500){
         throw new Error('Uma das artes da fila possui dados inválidos.');
       }
-      const bleedCanvas = criarCanvasComSangria(item.canvas);
+      const bitmap = await createImageBitmap(item.blob);
+      const arteCanvas = document.createElement('canvas');
+      arteCanvas.width = bitmap.width;
+      arteCanvas.height = bitmap.height;
+      const context = arteCanvas.getContext('2d');
+      if(!context){
+        bitmap.close();
+        throw new Error('Não foi possível preparar uma das artes da fila.');
+      }
+      context.drawImage(bitmap,0,0);
+      bitmap.close();
+      const bleedCanvas = criarCanvasComSangria(arteCanvas);
       const jpegBytes = await canvasToJpegBytes(bleedCanvas);
       preparados.push({...item, jpegBytes, imageWidth:bleedCanvas.width, imageHeight:bleedCanvas.height});
     }
