@@ -411,10 +411,10 @@ async function renderPadrao(canvas, state){
   roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
   ctx.stroke();
 
-  // 2. logo — sempre ativo — x 2,9% / y 3,3% · largura-alvo 34%
+  // 2. logo — opcional; a área permanece reservada para não deslocar o layout.
   const logoX = 0.029 * W, logoY = 0.033 * H, logoW = 0.34 * W;
   const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : logoW * 0.9;
-  if(logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
+  if(state.mostrarLogo && logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
 
   // coluna do nome (direita), usada por categoria + nome + linha
   const colX = 0.388 * W, colW = 0.823 * W - colX;
@@ -562,18 +562,17 @@ async function renderGeladeira(canvas, state){
   roundRectPath(ctx, stroke / 2, stroke / 2, W - stroke, H - stroke, raio);
   ctx.stroke();
 
-  // 2. logo — centralizado — x 35,7-62,7% / y 2,1-27,9%
+  // 2. logo — opcional; a área permanece reservada para não deslocar o layout.
   const logoW = 0.27 * W;
   const logoH = logoImage ? logoW * (logoImage.height / logoImage.width) : logoW * 0.82;
   const logoX = W / 2 - logoW / 2, logoY = 0.021 * H;
-  if(logoImage) ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
+  if(state.mostrarLogo && logoImage){
+    ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
 
-  // 3. sparkles — ao redor do logo
-  // RAIO REVISADO: antes usava só 0,12*W (largura do card), sem relação
-  // com o tamanho real do logo carregado. Agora escala com logoH, então
-  // fica proporcional mesmo se o aspect ratio do arquivo de logo mudar.
-  const sparkleRaio = logoW / 2 + logoH * 0.5;
-  drawSparkles(ctx, W / 2, logoY + logoH / 2, sparkleRaio, cor.hex);
+    // Os brilhos acompanham o logo e também somem quando ele é desativado.
+    const sparkleRaio = logoW / 2 + logoH * 0.5;
+    drawSparkles(ctx, W / 2, logoY + logoH / 2, sparkleRaio, cor.hex);
+  }
 
   // 4. nome-produto — centralizado — caixa x 22,4-77,7% / y 30,9-50,9%
   ctx.fillStyle = '#000000';
