@@ -306,3 +306,68 @@ body.model-geladeira .only-geladeira{ display: flex; }
    - Histórico local de etiquetas recentes, com opção explícita de limpar.
    - Testes visuais automatizados em diferentes larguras de tela.
 */
+
+
+/* Fila de artes para montagem de folhas A4 */
+.print-queue{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:14px;
+  border:1px solid var(--cinza-borda);
+  border-radius:10px;
+  background:var(--branco);
+}
+.print-queue h2{
+  margin:0;
+  font-size:16px;
+}
+.print-queue-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.print-queue-item{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:8px;
+  padding:9px;
+  border:1px solid var(--cinza-borda);
+  border-radius:8px;
+}
+.print-queue-description{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  gap:3px;
+}
+.print-queue-description strong{
+  overflow-wrap:anywhere;
+  font-size:13px;
+}
+.print-queue-description small{
+  color:#666;
+  font-size:11px;
+}
+.print-queue-quantity{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  font-size:10px;
+  color:#555;
+}
+.print-queue-quantity input{
+  width:64px;
+  min-height:36px;
+  padding:6px;
+  border:1px solid var(--cinza-borda);
+  border-radius:6px;
+}
+.print-queue .btn-link{
+  justify-self:end;
+}
+@media(max-width:420px){
+  .print-queue-item{grid-template-columns:minmax(0,1fr) auto; }
+  .print-queue-item .btn-link{grid-column:1 / -1;}
+}
