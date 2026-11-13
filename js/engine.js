@@ -88,13 +88,14 @@ async function assetsReady(){
 // ----------------------------------------------------------
 // UTILITÁRIOS DE BASE
 // ----------------------------------------------------------
-function setupCanvas(canvas, logicalW, logicalH){
-  canvas.width = logicalW * CANVAS_SCALE;
-  canvas.height = logicalH * CANVAS_SCALE;
+function setupCanvas(canvas, logicalW, logicalH, scale = CANVAS_SCALE){
+  canvas.width = Math.max(1, Math.round(logicalW * scale));
+  canvas.height = Math.max(1, Math.round(logicalH * scale));
   canvas.style.width = logicalW + 'px';
   canvas.style.height = logicalH + 'px';
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0);
+  if(!ctx) throw new Error('Não foi possível preparar o Canvas.');
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   return ctx;
 }
 
@@ -388,10 +389,10 @@ function drawGota(ctx, x, y, size){
 // ==========================================================
 // MODELO: PADRÃO  (995 x 957 medido — spec-camadas.md)
 // ==========================================================
-async function renderPadrao(canvas, state){
+async function renderPadrao(canvas, state, renderScale = CANVAS_SCALE){
   await assetsReady();
   const dims = DESIGN.padrao;
-  const ctx = setupCanvas(canvas, dims.w, dims.h);
+  const ctx = setupCanvas(canvas, dims.w, dims.h, renderScale);
   const W = dims.w, H = dims.h;
   const cor = COLOR_MAP[state.cor] || COLOR_MAP.vermelho;
   const preco = formatPreco(state.precoInteiro, state.precoCentavos);
@@ -540,10 +541,10 @@ async function renderPadrao(canvas, state){
 // ==========================================================
 // MODELO: GELADEIRA  (856 x 904 medido — spec-camadas.md)
 // ==========================================================
-async function renderGeladeira(canvas, state){
+async function renderGeladeira(canvas, state, renderScale = CANVAS_SCALE){
   await assetsReady();
   const dims = state.orientacao === 'landscape' ? DESIGN.geladeiraLandscape : DESIGN.geladeiraPortrait;
-  const ctx = setupCanvas(canvas, dims.w, dims.h);
+  const ctx = setupCanvas(canvas, dims.w, dims.h, renderScale);
   const W = dims.w, H = dims.h;
   const cor = COLOR_MAP[state.cor] || COLOR_MAP.amarelo;
   const preco = formatPreco(state.precoInteiro, state.precoCentavos);
