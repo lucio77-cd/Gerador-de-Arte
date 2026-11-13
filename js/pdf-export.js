@@ -61,6 +61,10 @@
     const ctx = result.getContext('2d');
     if(!ctx) throw new Error('Não foi possível preparar a sangria da etiqueta.');
 
+    // O fundo branco evita que áreas transparentes dos cantos virem pretas no JPEG.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, result.width, result.height);
+
     // A sangria prolonga os pixels das bordas; não cria uma moldura branca.
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(arteCanvas, 0, 0, 1, height, 0, bleedPx, bleedPx, height);
@@ -138,7 +142,7 @@
     );
     objects[4] = concatBytes([
       textBytes(
-        `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+        `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate false /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
       ),
       jpegBytes,
       textBytes('\nendstream\nendobj\n'),
