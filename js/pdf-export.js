@@ -1,0 +1,203 @@
+/* ==========================================================
+   EXPORTAÇÃO PARA IMPRESSÃO — PDF A4
+   - Arte rasterizada a 300 DPI pelo motor Canvas existente.
+   - Sangria de 2 mm por lado, preenchida por extensão das bordas.
+   - Marcas de corte vetoriais, fora da área de sangria.
+   - PDF A4 em tamanho físico real, sem dependências externas.
+========================================================== */
+(function(){
+  'use strict';
+
+  const PAGE = { widthMm: 210, heightMm: 297 };
+  const BLEED_MM = 2;
+  const DPI = 300;
+  const MARK_GAP_MM = 0.5;
+  const MARK_LENGTH_MM = 3;
+  const MARK_WIDTH_PT = 0.35;
+
+  function mmToPt(value){
+    return value * 72 / 25.4;
+  }
+
+  function textBytes(value){
+    return new TextEncoder().encode(value);
+  }
+
+  function concatBytes(parts){
+    const total = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for(const part of parts){
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  }
+
+  function canvasToJpegBytes(canvas){
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(async blob => {
+        if(!blob){
+          reject(new Error('Não foi possível preparar a imagem para o PDF.'));
+          return;
+        }
+        try{
+          resolve(new Uint8Array(await blob.arrayBuffer()));
+        }catch(err){
+          reject(new Error('Não foi possível ler a imagem gerada para impressão.'));
+        }
+      }, 'image/jpeg', 0.98);
+    });
+  }
+
+  function criarCanvasComSangria(arteCanvas){
+    const bleedPx = Math.max(1, Math.round(BLEED_MM / 25.4 * DPI));
+    const width = arteCanvas.width;
+    const height = arteCanvas.height;
+    const result = document.createElement('canvas');
+    result.width = width + bleedPx * 2;
+    result.height = height + bleedPx * 2;
+
+    const ctx = result.getContext('2d');
+    if(!ctx) throw new Error('Não foi possível preparar a sangria da etiqueta.');
+
+    // A sangria prolonga os pixels das bordas; não cria uma moldura branca.
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(arteCanvas, 0, 0, 1, height, 0, bleedPx, bleedPx, height);
+    ctx.drawImage(arteCanvas, width - 1, 0, 1, height, bleedPx + width, bleedPx, bleedPx, height);
+    ctx.drawImage(arteCanvas, 0, 0, width, 1, bleedPx, 0, width, bleedPx);
+    ctx.drawImage(arteCanvas, 0, height - 1, width, 1, bleedPx, bleedPx + height, width, bleedPx);
+
+    ctx.drawImage(arteCanvas, 0, 0, 1, 1, 0, 0, bleedPx, bleedPx);
+    ctx.drawImage(arteCanvas, width - 1, 0, 1, 1, bleedPx + width, 0, bleedPx, bleedPx);
+    ctx.drawImage(arteCanvas, 0, height - 1, 1, 1, 0, bleedPx + height, bleedPx, bleedPx);
+    ctx.drawImage(arteCanvas, width - 1, height - 1, 1, 1, bleedPx + width, bleedPx + height, bleedPx, bleedPx);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(arteCanvas, bleedPx, bleedPx);
+    return result;
+  }
+
+  function criarConteudoPDF(imageWidth, imageHeight, larguraMm, alturaMm){
+    const pageWidth = mmToPt(PAGE.widthMm);
+    const pageHeight = mmToPt(PAGE.heightMm);
+    const bleed = mmToPt(BLEED_MM);
+    const totalWidth = mmToPt(larguraMm + BLEED_MM * 2);
+    const totalHeight = mmToPt(alturaMm + BLEED_MM * 2);
+    const imageX = (pageWidth - totalWidth) / 2;
+    const imageY = (pageHeight - totalHeight) / 2;
+    const cutLeft = imageX + bleed;
+    const cutRight = cutLeft + mmToPt(larguraMm);
+    const cutBottom = imageY + bleed;
+    const cutTop = cutBottom + mmToPt(alturaMm);
+
+    const gap = mmToPt(MARK_GAP_MM);
+    const length = mmToPt(MARK_LENGTH_MM);
+    const segments = [
+      // Marcas horizontais à esquerda e à direita, alinhadas aos cortes.
+      [imageX - gap - length, cutBottom, imageX - gap, cutBottom],
+      [imageX - gap - length, cutTop, imageX - gap, cutTop],
+      [imageX + totalWidth + gap, cutBottom, imageX + totalWidth + gap + length, cutBottom],
+      [imageX + totalWidth + gap, cutTop, imageX + totalWidth + gap + length, cutTop],
+      // Marcas verticais abaixo e acima da sangria.
+      [cutLeft, imageY - gap - length, cutLeft, imageY - gap],
+      [cutRight, imageY - gap - length, cutRight, imageY - gap],
+      [cutLeft, imageY + totalHeight + gap, cutLeft, imageY + totalHeight + gap + length],
+      [cutRight, imageY + totalHeight + gap, cutRight, imageY + totalHeight + gap + length],
+    ];
+
+    const commands = [
+      'q',
+      `${totalWidth.toFixed(4)} 0 0 ${totalHeight.toFixed(4)} ${imageX.toFixed(4)} ${imageY.toFixed(4)} cm`,
+      '/Im0 Do',
+      'Q',
+      '0 G',
+      `${MARK_WIDTH_PT} w`,
+      ...segments.map(([x1, y1, x2, y2]) =>
+        `${x1.toFixed(4)} ${y1.toFixed(4)} m ${x2.toFixed(4)} ${y2.toFixed(4)} l S`
+      ),
+    ].join('\n') + '\n';
+
+    return {
+      pageWidth,
+      pageHeight,
+      imageWidth,
+      imageHeight,
+      content: textBytes(commands),
+    };
+  }
+
+  function montarPDF(jpegBytes, dados){
+    const { pageWidth, pageHeight, imageWidth, imageHeight, content } = dados;
+    const objects = [];
+
+    objects[1] = textBytes('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+    objects[2] = textBytes('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+    objects[3] = textBytes(
+      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(4)} ${pageHeight.toFixed(4)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`
+    );
+    objects[4] = concatBytes([
+      textBytes(
+        `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+      ),
+      jpegBytes,
+      textBytes('\nendstream\nendobj\n'),
+    ]);
+    objects[5] = concatBytes([
+      textBytes(`5 0 obj\n<< /Length ${content.length} >>\nstream\n`),
+      content,
+      textBytes('endstream\nendobj\n'),
+    ]);
+
+    const chunks = [textBytes('%PDF-1.4\n%Gerador-de-Artes\n')];
+    const offsets = [0];
+    let position = chunks[0].length;
+
+    for(let i = 1; i <= 5; i++){
+      offsets[i] = position;
+      chunks.push(objects[i]);
+      position += objects[i].length;
+    }
+
+    const xrefOffset = position;
+    let xref = 'xref\n0 6\n0000000000 65535 f \n';
+    for(let i = 1; i <= 5; i++){
+      xref += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+    }
+    xref +=
+      `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+    chunks.push(textBytes(xref));
+
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  async function gerarPDF(arteCanvas, { larguraMm, alturaMm }){
+    if(!(arteCanvas instanceof HTMLCanvasElement) || !arteCanvas.width || !arteCanvas.height){
+      throw new Error('A arte ainda não está pronta para impressão.');
+    }
+    if(!Number.isFinite(larguraMm) || !Number.isFinite(alturaMm) || larguraMm <= 0 || alturaMm <= 0){
+      throw new Error('As dimensões da etiqueta são inválidas.');
+    }
+
+    const margemTecnica = BLEED_MM * 2 + (MARK_GAP_MM + MARK_LENGTH_MM) * 2;
+    if(larguraMm + margemTecnica > PAGE.widthMm || alturaMm + margemTecnica > PAGE.heightMm){
+      throw new Error('A etiqueta não cabe na folha A4 com sangria e marcas de corte.');
+    }
+
+    const canvasComSangria = criarCanvasComSangria(arteCanvas);
+    const jpegBytes = await canvasToJpegBytes(canvasComSangria);
+    const dados = criarConteudoPDF(
+      canvasComSangria.width,
+      canvasComSangria.height,
+      larguraMm,
+      alturaMm
+    );
+    return montarPDF(jpegBytes, dados);
+  }
+
+  window.PDFPrint = Object.freeze({
+    gerarPDF,
+    dpi: DPI,
+    sangriaMm: BLEED_MM,
+  });
+})();
