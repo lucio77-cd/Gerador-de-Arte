@@ -28,6 +28,7 @@ const state = {
   escalaNome: 1,
   escalaImagem: 1,
   escalaPreco: 1,
+  larguraImpressaoMm: 100,
 };
 
 const canvas = document.getElementById('artCanvas');
@@ -42,6 +43,24 @@ function setStatus(message, type = 'info'){
   if(!statusEl) return;
   statusEl.textContent = message;
   statusEl.dataset.status = type;
+}
+
+function obterDimensoesModelo(){
+  if(state.model === 'padrao') return DESIGN.padrao;
+  return state.orientacao === 'landscape' ? DESIGN.geladeiraLandscape : DESIGN.geladeiraPortrait;
+}
+
+function atualizarAlturaImpressao(){
+  const largura = Number(document.getElementById('larguraImpressao').value);
+  const alturaEl = document.getElementById('alturaImpressao');
+  if(!Number.isFinite(largura) || largura <= 0){
+    alturaEl.textContent = '—';
+    return null;
+  }
+  const dimensoes = obterDimensoesModelo();
+  const altura = largura * dimensoes.h / dimensoes.w;
+  alturaEl.textContent = `${altura.toFixed(1)} mm`;
+  return altura;
 }
 
 function renderPreview(){
@@ -86,6 +105,7 @@ document.getElementById('tabs').addEventListener('click', (e) => {
   });
 
   state.model = btn.dataset.model;
+  atualizarAlturaImpressao();
   document.body.classList.remove('model-geladeira', 'model-padrao');
   document.body.classList.add(`model-${state.model}`);
   renderPreview();
@@ -141,8 +161,14 @@ fieldBindings.forEach(([id, key]) => {
   const el = document.getElementById(id);
   el.addEventListener('input', () => {
     state[key] = el.value;
+    if(key === 'orientacao') atualizarAlturaImpressao();
     renderPreview();
   });
+});
+
+document.getElementById('larguraImpressao').addEventListener('input', (e) => {
+  state.larguraImpressaoMm = Number(e.target.value);
+  atualizarAlturaImpressao();
 });
 
 document.getElementById('mostrarLogo').addEventListener('change', (e) => {
@@ -427,7 +453,76 @@ btnBaixarEl.addEventListener('click', async () => {
 });
 
 // ==========================================================
+// EXPORTAÇÃO PDF A4 — ARTE INDIVIDUAL
+// ==========================================================
+const btnBaixarPdfEl = document.getElementById('btnBaixarPdf');
+
+btnBaixarPdfEl.addEventListener('click', async () => {
+  const validacao = validarPreco();
+  if(!validacao.valido){
+    setStatus(validacao.mensagem, 'error');
+    alert(validacao.mensagem);
+    validacao.campo.focus();
+    return;
+  }
+
+  const larguraMm = Number(document.getElementById('larguraImpressao').value);
+  if(!Number.isFinite(larguraMm) || larguraMm < 20 || larguraMm > 180){
+    const mensagem = 'Informe uma largura entre 20 e 180 mm para manter as margens de segurança da folha A4.';
+    setStatus(mensagem, 'error');
+    alert(mensagem);
+    document.getElementById('larguraImpressao').focus();
+    return;
+  }
+
+  const alturaMm = atualizarAlturaImpressao();
+  if(!alturaMm){
+    setStatus('Não foi possível calcular a altura da etiqueta.', 'error');
+    return;
+  }
+
+  const textoOriginal = btnBaixarPdfEl.textContent;
+  btnBaixarPdfEl.disabled = true;
+  btnBaixarPdfEl.textContent = 'Gerando PDF...';
+  setStatus('Renderizando a arte em 300 DPI e montando a folha A4...');
+
+  try{
+    await assetsReady();
+    const dimensoes = obterDimensoesModelo();
+    const larguraPixels = Math.round(larguraMm / 25.4 * PDFPrint.dpi);
+    const escalaImpressao = larguraPixels / dimensoes.w;
+    const canvasImpressao = document.createElement('canvas');
+
+    if(state.model === 'geladeira'){
+      await renderGeladeira(canvasImpressao, state, escalaImpressao);
+    } else {
+      await renderPadrao(canvasImpressao, state, escalaImpressao);
+    }
+
+    const blob = await PDFPrint.gerarPDF(canvasImpressao, { larguraMm, alturaMm });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `etiqueta-${state.model}-${nomeArquivoSeguro(state.nome)}-A4.pdf`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus('PDF A4 gerado em 300 DPI, com sangria de 2 mm e marcas de corte. Imprima em tamanho real (100%).', 'success');
+  }catch(err){
+    console.error('Falha ao exportar PDF:', err);
+    const mensagem = err.message || 'Não foi possível gerar o PDF. Tente novamente.';
+    setStatus(mensagem, 'error');
+    alert(mensagem);
+  }finally{
+    btnBaixarPdfEl.disabled = false;
+    btnBaixarPdfEl.textContent = textoOriginal;
+  }
+});
+
+// ==========================================================
 // INICIALIZAÇÃO
 // ==========================================================
+atualizarAlturaImpressao();
 updateAvatarPreview();
 renderPreview();
