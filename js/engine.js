@@ -549,163 +549,88 @@ async function renderPadraoV2(canvas, state, renderScale = CANVAS_SCALE){
   const dims = DESIGN.padrao;
   const ctx = setupCanvas(canvas, dims.w, dims.h, renderScale);
   const W = dims.w, H = dims.h;
-  const cor = COLOR_MAP[state.cor] || COLOR_MAP.amarelo;
+  const cor = COLOR_MAP[state.cor] || COLOR_MAP.vermelho;
   const preco = formatPreco(state.precoInteiro, state.precoCentavos);
-  const minDim = Math.min(W, H);
 
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#FFF9EF';
-  roundRectPath(ctx, 0, 0, W, H, 28);
-  ctx.fill();
-  ctx.lineWidth = 9;
-  ctx.strokeStyle = '#172B45';
-  roundRectPath(ctx, 5, 5, W - 10, H - 10, 25);
-  ctx.stroke();
-  ctx.lineWidth = 3;
+
+  // Fundo claro e uma única moldura fina na cor escolhida.
+  ctx.fillStyle = '#FFFEFA';
+  ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = cor.hex;
-  roundRectPath(ctx, 17, 17, W - 34, H - 34, 19);
+  ctx.lineWidth = 5;
+  roundRectPath(ctx, 9, 9, W - 18, H - 18, 12);
   ctx.stroke();
 
-  // Cabeçalho escuro com recortes diagonais.
-  ctx.save();
-  ctx.fillStyle = '#172B45';
-  roundRectPath(ctx, 20, 20, W - 40, H * 0.245, 20);
-  ctx.fill();
-  ctx.fillStyle = cor.hex;
-  ctx.beginPath();
-  ctx.moveTo(W * 0.69, 20);
-  ctx.lineTo(W - 20, 20);
-  ctx.lineTo(W - 20, H * 0.265);
-  ctx.lineTo(W * 0.82, H * 0.265);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.moveTo(W * 0.82, 20);
-  ctx.lineTo(W - 20, 20);
-  ctx.lineTo(W - 20, H * 0.265);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
+  // Logo pequeno e discreto; sem reservar uma área grande quando oculto.
   if(state.mostrarLogo && logoImage){
-    const logoW = W * 0.23;
+    const logoW = W * 0.19;
     const logoH = logoW * (logoImage.height / logoImage.width);
-    ctx.drawImage(logoImage, W * 0.055, H * 0.055, logoW, Math.min(logoH, H * 0.15));
-  }
-  if(state.categoria){
-    drawBadge(ctx, state.categoria.toUpperCase(), {
-      x: W * 0.64, y: H * 0.075, alturaAlvo: H * 0.052,
-      cor: '#FFF9EF', corTexto: '#172B45', align: 'left',
-      paddingX: H * 0.025
-    });
+    ctx.drawImage(logoImage, (W - logoW) / 2, H * 0.055, logoW, Math.min(logoH, H * 0.105));
   }
 
-  // Nome central, com ajuste automático para textos longos.
+  // Categoria é opcional e aparece como identificação discreta.
+  let topoNome = state.mostrarLogo && logoImage ? H * 0.205 : H * 0.13;
+  if(state.categoria){
+    ctx.fillStyle = cor.hex;
+    ctx.font = `700 ${H * 0.027}px Montserrat`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(state.categoria.toUpperCase(), W / 2, topoNome);
+    topoNome += H * 0.065;
+  }
+
+  // Nome do produto é o primeiro elemento de leitura.
   const nome = (state.nome || 'NOME DO PRODUTO').toUpperCase();
   const nomeFit = fitText(ctx, nome, {
-    fontFamily: 'Anton', min: 25 * state.escalaNome,
-    max: 82 * state.escalaNome, maxWidth: W * 0.84,
-    maxHeight: H * 0.16, maxLines: 2, lineHeightRatio: 1.02
+    fontFamily: 'Anton',
+    min: 26 * (state.escalaNome || 1),
+    max: 86 * (state.escalaNome || 1),
+    maxWidth: W * 0.86,
+    maxHeight: H * 0.24,
+    maxLines: 2,
+    lineHeightRatio: 1.04
   });
-  ctx.fillStyle = '#172B45';
+  ctx.fillStyle = '#24211E';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  const nomeAltura = nomeFit.lines.length * nomeFit.size * 1.02;
-  const nomeBase = H * 0.365 - nomeAltura / 2 + nomeFit.size * 0.82;
+  const nomeLineHeight = nomeFit.size * 1.04;
+  const nomeBlockHeight = nomeFit.lines.length * nomeLineHeight;
+  const nomeStartY = Math.max(topoNome + H * 0.045, H * 0.30);
   nomeFit.lines.forEach((linha, i) => {
-    ctx.fillText(linha, W / 2, nomeBase + i * nomeFit.size * 1.02);
+    ctx.fillText(linha, W / 2, nomeStartY + i * nomeLineHeight + nomeFit.size * 0.82);
   });
 
-  ctx.fillStyle = cor.hex;
-  roundRectPath(ctx, W * 0.37, H * 0.405, W * 0.26, H * 0.009, H * 0.0045);
-  ctx.fill();
-  drawDiamante(ctx, W * 0.32, H * 0.41, H * 0.012, cor.hex);
-  drawDiamante(ctx, W * 0.68, H * 0.41, H * 0.012, cor.hex);
-
-  // Área central: foto, selo ou grafismo preenchido por padrão.
-  const imageSize = minDim * 0.30;
-  const imageX = (W - imageSize) / 2;
-  const imageY = H * 0.445;
-  ctx.save();
-  ctx.fillStyle = '#F0E5D5';
-  roundRectPath(ctx, imageX - 18, imageY - 10, imageSize + 36, imageSize + 20, 25);
-  ctx.fill();
-  ctx.lineWidth = 4;
+  // Um único traço colorido separa produto e preço.
+  const linhaY = Math.min(H * 0.57, nomeStartY + nomeBlockHeight + H * 0.075);
   ctx.strokeStyle = cor.hex;
-  roundRectPath(ctx, imageX - 18, imageY - 10, imageSize + 36, imageSize + 20, 25);
-  ctx.stroke();
-  ctx.restore();
-
-  if(state.estadoImagem === 'foto' && state.imagemImg){
-    drawImageCover(ctx, state.imagemImg, imageX, imageY, imageSize, imageSize, 18);
-  } else if(state.estadoImagem === 'promocao'){
-    drawSeloPromocao(ctx, imageX + imageSize * 0.08, imageY + imageSize * 0.08,
-      imageSize * 0.84, imageSize * 0.84, cor);
-  } else {
-    ctx.save();
-    ctx.fillStyle = '#FFFFFF';
-    roundRectPath(ctx, imageX, imageY, imageSize, imageSize, 18);
-    ctx.fill();
-    ctx.fillStyle = cor.hex;
-    ctx.globalAlpha = 0.17;
-    ctx.beginPath();
-    ctx.arc(W * 0.5, imageY + imageSize * 0.5, imageSize * 0.40, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = cor.hex;
-    ctx.lineWidth = Math.max(5, minDim * 0.012);
-    ctx.beginPath();
-    ctx.arc(W * 0.5, imageY + imageSize * 0.5, imageSize * 0.29, 0, Math.PI * 2);
-    ctx.stroke();
-    drawDiamante(ctx, W * 0.5, imageY + imageSize * 0.5, imageSize * 0.20, cor.hex);
-    drawSparkles(ctx, W * 0.5, imageY + imageSize * 0.5, imageSize * 0.36, '#172B45');
-    ctx.restore();
-  }
-
-  if(state.mostrarOferta){
-    drawBadge(ctx, 'OFERTA', {
-      x: W * 0.075, y: H * 0.49, alturaAlvo: H * 0.075,
-      cor: cor.hex, corTexto: cor.light ? '#172B45' : '#FFFFFF',
-      align: 'left', rotationDeg: -5, paddingX: H * 0.025
-    });
-  }
-  if(state.infoExtra){
-    drawBadge(ctx, state.infoExtra.toUpperCase(), {
-      x: W * 0.78, y: H * 0.49, alturaAlvo: H * 0.045,
-      cor: '#172B45', corTexto: '#FFFFFF',
-      align: 'center', paddingX: H * 0.012
-    });
-  }
-
-  // Faixa inferior de preço.
-  ctx.save();
-  ctx.fillStyle = '#172B45';
-  roundRectPath(ctx, W * 0.045, H * 0.755, W * 0.91, H * 0.195, 24);
-  ctx.fill();
-  ctx.fillStyle = cor.hex;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(W * 0.045, H * 0.755);
-  ctx.lineTo(W * 0.30, H * 0.755);
-  ctx.lineTo(W * 0.22, H * 0.78);
-  ctx.lineTo(W * 0.045, H * 0.78);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  ctx.moveTo(W * 0.39, linhaY);
+  ctx.lineTo(W * 0.61, linhaY);
+  ctx.stroke();
 
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `800 ${H * 0.022}px Montserrat`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('PREÇO ESPECIAL', W / 2, H * 0.785);
+  // Oferta, quando ativada, é pequena e não compete com o produto/preço.
+  const ofertaY = linhaY + H * 0.075;
+  if(state.mostrarOferta){
+    ctx.fillStyle = cor.hex;
+    ctx.font = `800 ${H * 0.033}px Montserrat`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('OFERTA', W / 2, ofertaY);
+  }
+
+  // Preço em destaque, sem faixa, selo ou elementos decorativos.
+  const precoY = state.mostrarOferta ? H * 0.88 : H * 0.86;
   drawPreco(ctx, preco, {
-    anchorX: W / 2, baselineY: H * 0.915,
-    alturaAlvo: H * 0.125 * state.escalaPreco,
-    maxWidth: W * 0.78, align: 'center', color: '#FFFFFF'
+    anchorX: W / 2,
+    baselineY: precoY,
+    alturaAlvo: H * 0.235 * (state.escalaPreco || 1),
+    maxWidth: W * 0.86,
+    align: 'center',
+    color: cor.hex
   });
-  drawDiamante(ctx, W * 0.12, H * 0.965, H * 0.012, cor.hex);
-  drawDiamante(ctx, W * 0.88, H * 0.965, H * 0.012, cor.hex);
 }
 
 // Mantém preview, PNG, PDF e fila A4 usando a versão escolhida.
