@@ -14,6 +14,7 @@
 
 const state = {
   model: 'geladeira',
+  padraoVersao: 1,
   nome: '',
   categoria: '',
   precoInteiro: '8',
@@ -122,6 +123,12 @@ document.getElementById('tabs').addEventListener('click', (e) => {
   document.body.classList.add(`model-${state.model}`);
   renderPreview();
 });
+document.getElementById('versaoPadrao').addEventListener('change', (e) => {
+  const versao = Number(e.target.value);
+  state.padraoVersao = versao === 2 ? 2 : 1;
+  renderPreview();
+});
+
 document.body.classList.add('model-geladeira');
 
 // ==========================================================
