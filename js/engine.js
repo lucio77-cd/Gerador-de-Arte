@@ -596,8 +596,8 @@ async function renderPadraoV2(canvas, state, renderScale = CANVAS_SCALE){
   }
   if(state.categoria){
     drawBadge(ctx, state.categoria.toUpperCase(), {
-      x: W * 0.94, y: H * 0.075, alturaAlvo: H * 0.052,
-      cor: '#FFF9EF', corTexto: '#172B45', align: 'center',
+      x: W * 0.64, y: H * 0.075, alturaAlvo: H * 0.052,
+      cor: '#FFF9EF', corTexto: '#172B45', align: 'left',
       paddingX: H * 0.025
     });
   }
